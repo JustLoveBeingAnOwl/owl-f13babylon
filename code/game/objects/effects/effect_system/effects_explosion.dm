@@ -4,7 +4,7 @@
 	opacity = 1
 	anchored = TRUE
 
-/obj/effect/particle_effect/expl_particles/Initialize(mapload)
+/obj/effect/particle_effect/expl_particles/Initialize()
 	. = ..()
 	QDEL_IN(src, 15)
 
@@ -17,7 +17,7 @@
 		var/direct = pick(GLOB.alldirs)
 		var/steps_amt = pick(1;25,2;50,3,4;200)
 		for(var/j in 1 to steps_amt)
-			addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(_step), expl, direct), j)
+			addtimer(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(_step), expl, direct), j)
 
 /obj/effect/explosion
 	name = "fire"
@@ -29,7 +29,7 @@
 	pixel_x = -32
 	pixel_y = -32
 
-/obj/effect/explosion/Initialize(mapload)
+/obj/effect/explosion/Initialize()
 	. = ..()
 	QDEL_IN(src, 10)
 

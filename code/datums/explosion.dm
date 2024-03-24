@@ -123,7 +123,7 @@ GLOBAL_LIST_EMPTY(explosions)
 					baseshakeamount = sqrt((orig_max_distance - dist)*0.1)
 				// If inside the blast radius + world.view - 2
 				if(dist <= round(max_range + world.view - 2, 1))
-					M.playsound_local(epicenter, null, 100, 1, frequency, falloff = 5, S = explosion_sound)
+					M.playsound_local(epicenter, null, 100, 1, frequency, falloff_distance = 5, S = explosion_sound)
 					if(baseshakeamount > 0)
 						shake_camera(M, 25, clamp(baseshakeamount, 0, 10))
 				// You hear a far explosion if you're outside the blast radius. Small bombs shouldn't be heard all over the station.
@@ -177,7 +177,7 @@ GLOBAL_LIST_EMPTY(explosions)
 
 	var/iteration = 0
 	var/affTurfLen = affected_turfs.len
-	var/expBlockLen = cached_exp_block?.len
+	var/expBlockLen = cached_exp_block.len
 	for(var/TI in affected_turfs)
 		var/turf/T = TI
 		++iteration
@@ -226,12 +226,11 @@ GLOBAL_LIST_EMPTY(explosions)
 
 		var/throw_dir = get_dir(epicenter,T)
 		for(var/obj/item/I in T)
-			if(QDELETED(I) || I.anchored)
-				continue
-			var/throw_range = rand(throw_dist, max_range)
-			var/turf/throw_at = get_ranged_target_turf(I, throw_dir, throw_range)
-			I.throw_speed = EXPLOSION_THROW_SPEED //Temporarily change their throw_speed for embedding purposes (Reset when it finishes throwing, regardless of hitting anything)
-			I.throw_at(throw_at, throw_range, EXPLOSION_THROW_SPEED)
+			if(!I.anchored)
+				var/throw_range = rand(throw_dist, max_range)
+				var/turf/throw_at = get_ranged_target_turf(I, throw_dir, throw_range)
+				I.throw_speed = EXPLOSION_THROW_SPEED //Temporarily change their throw_speed for embedding purposes (Reset when it finishes throwing, regardless of hitting anything)
+				I.throw_at(throw_at, throw_range, EXPLOSION_THROW_SPEED)
 
 		//wait for the lists to repop
 		var/break_condition
@@ -250,7 +249,7 @@ GLOBAL_LIST_EMPTY(explosions)
 
 			//update the trackers
 			affTurfLen = affected_turfs.len
-			expBlockLen = cached_exp_block?.len
+			expBlockLen = cached_exp_block.len
 
 			if(break_condition)
 				if(reactionary)
@@ -267,7 +266,7 @@ GLOBAL_LIST_EMPTY(explosions)
 
 				//update the trackers
 				affTurfLen = affected_turfs.len
-				expBlockLen = cached_exp_block?.len
+				expBlockLen = cached_exp_block.len
 
 			var/circumference = (PI * (init_dist + 4) * 2) //+4 to radius to prevent shit gaps
 			if(exploded_this_tick.len > circumference)	//only do this every revolution
@@ -403,7 +402,7 @@ GLOBAL_LIST_EMPTY(explosions)
 		else
 			continue
 
-	addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(wipe_color_and_text), wipe_colours), 100)
+	addtimer(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(wipe_color_and_text), wipe_colours), 100)
 
 /proc/wipe_color_and_text(list/atom/wiping)
 	for(var/i in wiping)

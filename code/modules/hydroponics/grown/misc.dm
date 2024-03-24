@@ -16,7 +16,10 @@
 	grind_results = list(/datum/reagent/mustardgrind = 1)
 	growing_icon = 'icons/obj/hydroponics/growing_flowers.dmi'
 	genes = list(/datum/plant_gene/trait/plant_type/weed_hardy)
-	mutatelist = list(/obj/item/seeds/starthistle/corpse_flower, /obj/item/seeds/galaxythistle)
+	mutatelist = list(
+		/obj/item/seeds/starthistle/corpse_flower,
+		/obj/item/seeds/galaxythistle
+	)
 
 /obj/item/seeds/starthistle/harvest(mob/user)
 	var/obj/machinery/hydroponics/parent = loc
@@ -81,7 +84,10 @@
 	growing_icon = 'icons/obj/hydroponics/growing_flowers.dmi'
 	genes = list(/datum/plant_gene/trait/plant_type/weed_hardy, /datum/plant_gene/trait/invasive)
 	mutatelist = list()
-	reagents_add = list(/datum/reagent/consumable/nutriment = 0.05, /datum/reagent/medicine/silibinin = 0.1)
+	reagents_add = list(
+		/datum/reagent/consumable/nutriment = 0.05,
+		/datum/reagent/medicine/silibinin = 0.1
+	)
 
 /obj/item/seeds/galaxythistle/Initialize(mapload, nogenes = FALSE)
 	. = ..()
@@ -116,7 +122,10 @@
 	growthstages = 1
 	growing_icon = 'icons/obj/hydroponics/growing_vegetables.dmi'
 	genes = list(/datum/plant_gene/trait/repeated_harvest)
-	reagents_add = list(/datum/reagent/consumable/nutriment/vitamin = 0.04, /datum/reagent/consumable/nutriment = 0.1)
+	reagents_add = list(
+		/datum/reagent/consumable/nutriment/vitamin = 0.04,
+		/datum/reagent/consumable/nutriment = 0.1
+	)
 
 	//mutatelist = list(/obj/item/seeds/replicapod)
 
@@ -176,7 +185,12 @@
 	growthstages = 2
 	rarity = 60 // Obtainable only with xenobio+superluck.
 	growing_icon = 'icons/obj/hydroponics/growing_fruits.dmi'
-	reagents_add = list(/datum/reagent/sulfur = 0.1, /datum/reagent/carbon = 0.1, /datum/reagent/nitrogen = 0.07, /datum/reagent/potassium = 0.05)
+	reagents_add = list(
+		/datum/reagent/sulfur = 0.1,
+		/datum/reagent/carbon = 0.1,
+		/datum/reagent/nitrogen = 0.07,
+		/datum/reagent/potassium = 0.05
+	)
 
 /obj/item/reagent_containers/food/snacks/grown/shell/gatfruit
 	seed = /obj/item/seeds/gatfruit
@@ -198,7 +212,11 @@
 	plantname = "Cherry Bomb Tree"
 	product = /obj/item/reagent_containers/food/snacks/grown/cherry_bomb
 	mutatelist = list()
-	reagents_add = list(/datum/reagent/consumable/nutriment = 0.1, /datum/reagent/consumable/sugar = 0.1, /datum/reagent/blackpowder = 0.7)
+	reagents_add = list(
+		/datum/reagent/consumable/nutriment = 0.1,
+		/datum/reagent/consumable/sugar = 0.1,
+		/datum/reagent/blackpowder = 0.7
+	)
 	rarity = 60 //See above
 
 /obj/item/reagent_containers/food/snacks/grown/cherry_bomb
@@ -213,7 +231,7 @@
 	wine_power = 80
 
 /obj/item/reagent_containers/food/snacks/grown/cherry_bomb/attack_self(mob/living/user)
-	user.visible_message("<span class='warning'>[user] plucks the stem from [src]!</span>", "<span class='userdanger'>You pluck the stem from [src], which begins to hiss loudly!</span>")
+	user.visible_message(span_warning("[user] plucks the stem from [src]!"), span_userdanger("You pluck the stem from [src], which begins to hiss loudly!"))
 	message_admins("[ADMIN_LOOKUPFLW(user)] primed a cherry bomb for detonation at [ADMIN_VERBOSEJMP(user)]")
 	log_game("[key_name(user)] primed a cherry bomb for detonation at [AREACOORD(user)].")
 	prime()
@@ -308,13 +326,53 @@
 			amount_per_transfer_from_this = possible_transfer_amounts[i+1]
 		else
 			amount_per_transfer_from_this = possible_transfer_amounts[1]
-		to_chat(user, "<span class='notice'>[src]'s transfer amount is now [amount_per_transfer_from_this] units.</span>")
+		to_chat(user, span_notice("[src]'s transfer amount is now [amount_per_transfer_from_this] units."))
 		return
 
 /obj/item/reagent_containers/food/snacks/grown/coconut/attackby(obj/item/W, mob/user, params)
+
+	//DEFUSING NADE LOGIC
+	if (W.tool_behaviour == TOOL_WIRECUTTER && fused)
+		user.show_message(span_notice("You cut the fuse!"), MSG_VISUAL)
+		playsound(user, W.hitsound, 50, 1, -1)
+		icon_state = "coconut_carved"
+		desc = "A coconut. This one's got a hole in it."
+		name = "coconut"
+		defused = TRUE
+		fused = FALSE
+		fusedactive = FALSE
+		if(!seed.get_gene(/datum/plant_gene/trait/glow))
+			set_light_on(FALSE)
+		return
+	//IGNITING NADE LOGIC
+	if(!fusedactive && fused)
+		var/lighting_text = W.ignition_effect(src, user)
+		if(lighting_text)
+			user.visible_message(span_warning("[user] ignites [src]'s fuse!"), span_userdanger("You ignite the [src]'s fuse!"))
+			fusedactive = TRUE
+			defused = FALSE
+			playsound(src, 'sound/effects/fuse.ogg', 100, 0)
+			addtimer(CALLBACK(src, PROC_REF(prime)), 5 SECONDS)
+			icon_state = "coconut_grenade_active"
+			desc = "RUN!"
+			if(!seed.get_gene(/datum/plant_gene/trait/glow))
+				set_light_on(TRUE)
+			return
+
+	//ADDING A FUSE, NADE LOGIC
+	if (istype(W,/obj/item/stack/sheet/cloth) || istype(W,/obj/item/stack/sheet/durathread))
+		if (carved && !straw && !fused)
+			user.show_message(span_notice("You add a fuse to the coconut!"), 1)
+			W.use(1)
+			fused = TRUE
+			icon_state = "coconut_grenade"
+			desc = "A makeshift bomb made out of a coconut. You estimate the fuse is long enough for 5 seconds."
+			name = "coconut bomb"
+			return
+
 	//ADDING STRAW LOGIC
 	if (istype(W,/obj/item/stack/sheet/mineral/bamboo) && opened && !straw && fused)
-		user.show_message("<span class='notice'>You add a bamboo straw to the coconut!</span>", 1)
+		user.show_message(span_notice("You add a bamboo straw to the coconut!"), 1)
 		straw = TRUE
 		W.use(1)
 		icon_state += "_straw"
@@ -324,7 +382,7 @@
 	if (!carved && !chopped)
 		var/screwdrivered = W.tool_behaviour == TOOL_SCREWDRIVER
 		if(screwdrivered || W.sharpness)
-			user.show_message("<span class='notice'>You [screwdrivered ? "make a hole in the coconut" : "slice the coconut open"]!</span>", 1)
+			user.show_message(span_notice("You [screwdrivered ? "make a hole in the coconut" : "slice the coconut open"]!"), 1)
 			carved = TRUE
 			opened = TRUE
 			spillable = !screwdrivered
@@ -352,11 +410,11 @@
 
 			//Display an attack message.
 			if(M != user)
-				M.visible_message("<span class='danger'>[user] has cracked open a [name] on [M]'s head!</span>", \
-						"<span class='userdanger'>[user] has cracked open a [name] on [M]'s head!</span>")
+				M.visible_message(span_danger("[user] has cracked open a [name] on [M]'s head!"), \
+						span_userdanger("[user] has cracked open a [name] on [M]'s head!"))
 			else
-				user.visible_message("<span class='danger'>[M] cracks open a [name] on their [M.p_them()] head!</span>", \
-						"<span class='userdanger'>[M] cracks open a [name] on [M.p_their()] head!</span>")
+				user.visible_message(span_danger("[M] cracks open a [name] on their [M.p_them()] head!"), \
+						span_userdanger("[M] cracks open a [name] on [M.p_their()] head!"))
 
 			//The coconut breaks open so splash its reagents
 			spillable = TRUE
@@ -378,13 +436,13 @@
 		return
 
 	if(!reagents || !reagents.total_volume)
-		to_chat(user, "<span class='warning'>[src] is empty!</span>")
+		to_chat(user, span_warning("[src] is empty!"))
 		return
 
 	if(user.a_intent == INTENT_HARM && spillable)
 		var/R
-		M.visible_message("<span class='danger'>[user] splashes the contents of [src] onto [M]!</span>", \
-						"<span class='userdanger'>[user] splashes the contents of [src] onto [M]!</span>")
+		M.visible_message(span_danger("[user] splashes the contents of [src] onto [M]!"), \
+						span_userdanger("[user] splashes the contents of [src] onto [M]!"))
 		if(reagents)
 			for(var/datum/reagent/A in reagents.reagent_list)
 				R += A.type + " ("
@@ -397,19 +455,19 @@
 		reagents.clear_reagents()
 	else
 		if(M != user)
-			M.visible_message("<span class='danger'>[user] attempts to feed something to [M].</span>", \
-						"<span class='userdanger'>[user] attempts to feed something to you.</span>")
+			M.visible_message(span_danger("[user] attempts to feed something to [M]."), \
+						span_userdanger("[user] attempts to feed something to you."))
 			if(!do_mob(user, M))
 				return
 			if(!reagents || !reagents.total_volume)
 				return // The drink might be empty after the delay, such as by spam-feeding
-			M.visible_message("<span class='danger'>[user] feeds something to [M].</span>", "<span class='userdanger'>[user] feeds something to you.</span>")
+			M.visible_message(span_danger("[user] feeds something to [M]."), span_userdanger("[user] feeds something to you."))
 			log_combat(user, M, "fed", reagents.log_list())
 		else
-			to_chat(user, "<span class='notice'>You swallow a gulp of [src].</span>")
+			to_chat(user, span_notice("You swallow a gulp of [src]."))
 		var/fraction = min(5/reagents.total_volume, 1)
 		reagents.reaction(M, INGEST, fraction)
-		addtimer(CALLBACK(reagents, TYPE_PROC_REF(/datum/reagents, trans_to), M, 5), 5)
+		addtimer(CALLBACK(reagents, /datum/reagents.proc/trans_to, M, 5), 5)
 		playsound(M.loc,'sound/items/drink.ogg', rand(10,50), 1)
 
 /obj/item/reagent_containers/food/snacks/grown/coconut/afterattack(obj/target, mob/user, proximity)
@@ -424,32 +482,32 @@
 
 	if(target.is_refillable()) //Something like a glass. Player probably wants to transfer TO it.
 		if(!reagents.total_volume)
-			to_chat(user, "<span class='warning'>[src] is empty!</span>")
+			to_chat(user, span_warning("[src] is empty!"))
 			return
 
 		if(target.reagents.holder_full())
-			to_chat(user, "<span class='warning'>[target] is full.</span>")
+			to_chat(user, span_warning("[target] is full."))
 			return
 
 		var/trans = reagents.trans_to(target, amount_per_transfer_from_this)
-		to_chat(user, "<span class='notice'>You transfer [trans] unit\s of the solution to [target].</span>")
+		to_chat(user, span_notice("You transfer [trans] unit\s of the solution to [target]."))
 
 	else if(target.is_drainable()) //A dispenser. Transfer FROM it TO us.
 		if(!target.reagents.total_volume)
-			to_chat(user, "<span class='warning'>[target] is empty and can't be refilled!</span>")
+			to_chat(user, span_warning("[target] is empty and can't be refilled!"))
 			return
 
 		if(reagents.holder_full())
-			to_chat(user, "<span class='warning'>[src] is full.</span>")
+			to_chat(user, span_warning("[src] is full."))
 			return
 
 		var/trans = target.reagents.trans_to(src, amount_per_transfer_from_this)
-		to_chat(user, "<span class='notice'>You fill [src] with [trans] unit\s of the contents of [target].</span>")
+		to_chat(user, span_notice("You fill [src] with [trans] unit\s of the contents of [target]."))
 
 	else if(reagents.total_volume)
 		if(user.a_intent == INTENT_HARM && spillable == TRUE)
-			user.visible_message("<span class='danger'>[user] splashes the contents of [src] onto [target]!</span>", \
-								"<span class='notice'>You splash the contents of [src] onto [target].</span>")
+			user.visible_message(span_danger("[user] splashes the contents of [src] onto [target]!"), \
+								span_notice("You splash the contents of [src] onto [target]."))
 			reagents.reaction(target, TOUCH)
 			reagents.clear_reagents()
 
@@ -477,7 +535,7 @@
 
 /obj/item/seeds/aloe
 	name = "pack of aloe seeds"
-	desc = "These seeds grow into aloe, a plant useful for treating burns."
+	desc = "These seeds grow into aloe, a plant useful for its antiseptic properties."
 	icon_state = "seed-aloe"
 	species = "aloe"
 	plantname = "Aloe"
@@ -489,7 +547,12 @@
 	yield = 6
 	growthstages = 5
 	growing_icon = 'icons/obj/hydroponics/growing_vegetables.dmi'
-	reagents_add = list(/datum/reagent/consumable/nutriment/vitamin = 0.05, /datum/reagent/consumable/nutriment = 0.05, /datum/reagent/medicine/kelotane = 0.01)
+	reagents_add = list(
+		/datum/reagent/consumable/nutriment/vitamin = 0.05,
+		/datum/reagent/consumable/nutriment = 0.05,
+		/datum/reagent/medicine/kelotane = 0.01,
+		/datum/reagent/consumable/aloejuice =  0.02
+	)
 
 /obj/item/reagent_containers/food/snacks/grown/aloe
 	seed = /obj/item/seeds/aloe
@@ -505,3 +568,67 @@
 /obj/item/reagent_containers/food/snacks/grown/aloe/microwave_act(obj/machinery/microwave/M)
 	new /obj/item/stack/medical/mesh/aloe(drop_location(), 2)
 	qdel(src)
+
+///Star Cactus seeds, mutation of lavaland cactus.
+/obj/item/seeds/star_cactus
+	name = "pack of star cacti seeds"
+	desc = "These seeds grow into star cacti."
+	icon_state = "seed-starcactus"
+	species = "starcactus"
+	plantname = "Star Cactus Cluster"
+	product = /obj/item/reagent_containers/food/snacks/grown/star_cactus
+	lifespan = 60
+	endurance = 30
+	maturation = 7
+	production = 6
+	yield = 3
+	growthstages = 4
+	genes = list(/datum/plant_gene/trait/stinging)
+	growing_icon = 'icons/obj/hydroponics/growing_vegetables.dmi'
+	reagents_add = list(
+		/datum/reagent/water = 0.08,
+		/datum/reagent/consumable/nutriment = 0.05
+	)
+
+///Star Cactus Plants.
+/obj/item/reagent_containers/food/snacks/grown/star_cactus
+	seed = /obj/item/seeds/star_cactus
+	name = "star cacti"
+	desc = "A small cluster of prickly star-shaped cacti."
+	icon_state = "starcactus"
+	filling_color = "#1c801c"
+	foodtype = VEGETABLES
+	distill_reagent = /datum/reagent/consumable/ethanol/tequila
+
+///Shrubs
+/obj/item/seeds/shrub
+	name = "pack of shrub seeds"
+	desc = "These seeds grow into hedge shrubs."
+	icon_state = "seed-shrub"
+	species = "shrub"
+	plantname = "Shrubbery"
+	product = /obj/item/grown/shrub
+	lifespan = 40
+	endurance = 30
+	maturation = 4
+	production = 6
+	yield = 2
+	instability = 10
+	growthstages = 3
+	reagents_add = list()
+
+/obj/item/grown/shrub
+	seed = /obj/item/seeds/shrub
+	name = "shrub"
+	desc = "A shrubbery, it looks nice and it was only a few credits too. Plant it on the ground to grow a hedge, shrubbing skills not required."
+	icon_state = "shrub"
+
+/obj/item/grown/shrub/attack_self(mob/user)
+//	var/turf/player_turf = get_turf(user)
+//	if(player_turf?.is_blocked_turf(TRUE))
+//		return FALSE
+	user.visible_message(span_danger("[user] begins to plant \the [src]."))
+	if(do_after(user, 8 SECONDS, target = user.drop_location(), progress = TRUE))
+		new /obj/structure/fluff/hedge/opaque(user.drop_location())
+		to_chat(user, span_notice("You plant \the [src]."))
+		qdel(src)

@@ -5,7 +5,8 @@
 /datum/component/combat_mode
 	var/mode_flags = COMBAT_MODE_INACTIVE
 	var/combatmessagecooldown
-	var/atom/movable/screen/combattoggle/hud_icon
+	var/lastmousedir
+	var/obj/screen/combattoggle/hud_icon
 	var/hud_loc
 
 /datum/component/combat_mode/Initialize(hud_loc = ui_combat_toggle)
@@ -20,7 +21,7 @@
 	RegisterSignal(L, COMSIG_DISABLE_COMBAT_MODE, PROC_REF(safe_disable_combat_mode))
 	RegisterSignal(L, COMSIG_ENABLE_COMBAT_MODE, PROC_REF(safe_enable_combat_mode))
 	RegisterSignal(L, COMSIG_MOB_DEATH, PROC_REF(on_death))
-	RegisterSignal(L, COMSIG_MOB_LOGOUT, PROC_REF(on_logout))
+	RegisterSignal(L, COMSIG_MOB_CLIENT_LOGOUT, PROC_REF(on_logout))
 	RegisterSignal(L, COMSIG_MOB_HUD_CREATED, PROC_REF(on_mob_hud_created))
 	RegisterSignal(L, COMSIG_COMBAT_MODE_CHECK, PROC_REF(check_flags))
 
@@ -43,7 +44,7 @@
 	hud_icon.icon = tg_ui_icon_to_cit_ui(source.hud_used.ui_style)
 	hud_icon.screen_loc = hud_loc
 	source.hud_used.static_inventory += hud_icon
-	hud_icon.update_icon_state() // icon is already set to the cit version
+	hud_icon.update_icon()
 
 /// Combat mode can be locked out, forcibly disabled by a status trait.
 /datum/component/combat_mode/proc/update_combat_lock()
@@ -64,7 +65,7 @@
 	if(locked)
 		if(hud_icon)
 			hud_icon.combat_on = TRUE
-			hud_icon.update_icon_state() // call this instead of update_icon to prevent potential lag
+			hud_icon.update_icon()
 		return
 	if(mode_flags & COMBAT_MODE_ACTIVE)
 		return
@@ -72,34 +73,34 @@
 	mode_flags &= ~COMBAT_MODE_INACTIVE
 	SEND_SIGNAL(source, COMSIG_LIVING_COMBAT_ENABLED, forced)
 	if(!silent)
-		var/self_message = forced? "<span class='warning'>Your muscles reflexively tighten!</span>" : "<span class='warning'>You drop into a combative stance!</span>"
+		var/self_message = forced? span_warning("Your muscles reflexively tighten!") : span_warning("You drop into a combative stance!")
 		if(visible && (forced || world.time >= combatmessagecooldown))
 			combatmessagecooldown = world.time + 10 SECONDS
 			if(!forced)
 				if(source.a_intent != INTENT_HELP)
-					source.visible_message("<span class='warning'>[source] [source.resting ? "tenses up" : "drops into a combative stance"].</span>", self_message)
+					source.visible_message(span_warning("[source] [source.resting ? "tenses up" : "drops into a combative stance"]."), self_message)
 				else
-					source.visible_message("<span class='notice'>[source] [pick("looks","seems","goes")] [pick("alert","attentive","vigilant")].</span>")
+					source.visible_message(span_notice("[source] [pick("looks","seems","goes")] [pick("alert","attentive","vigilant")]."))
 			else
-				source.visible_message("<span class='warning'>[source] drops into a combative stance!</span>", self_message)
+				source.visible_message(span_warning("[source] drops into a combative stance!"), self_message)
 		else
 			to_chat(source, self_message)
 		if(playsound)
 			source.playsound_local(source, 'sound/misc/ui_toggle_vats.ogg', 50, FALSE, pressure_affected = FALSE) //Sound from interbay!
+	RegisterSignal(source, COMSIG_MOB_CLIENT_MOUSEMOVE, PROC_REF(onMouseMove))
+	RegisterSignal(source, COMSIG_MOVABLE_MOVED, PROC_REF(on_move))
 	if(hud_icon)
 		hud_icon.combat_on = TRUE
-		hud_icon.update_icon_state() // call this instead of update_icon to prevent potential lag
-	source.set_dir_on_move = FALSE
+		hud_icon.update_icon()
 	var/mob/living/L = source
 	L.toggle_combat_mode()
-	L.apply_status_effect(/datum/status_effect/grouped/surrender, src)
 
 /// Disables combat mode. Please use 'safe_disable_combat_mode' instead, if you wish to also disable the toggle flag.
 /datum/component/combat_mode/proc/disable_combat_mode(mob/living/source, silent = TRUE, forced = TRUE, visible = FALSE, locked = FALSE, playsound = FALSE)
 	if(locked)
 		if(hud_icon)
 			hud_icon.combat_on = FALSE
-			hud_icon.update_icon_state() // call this instead of update_icon to prevent potential lag
+			hud_icon.update_icon()
 		return
 	if(!(mode_flags & COMBAT_MODE_ACTIVE))
 		return
@@ -107,23 +108,34 @@
 	mode_flags |= COMBAT_MODE_INACTIVE
 	SEND_SIGNAL(source, COMSIG_LIVING_COMBAT_DISABLED, forced)
 	if(!silent)
-		var/self_message = forced? "<span class='warning'>Your muscles are forcibly relaxed!</span>" : "<span class='warning'>You relax your stance.</span>"
+		var/self_message = forced? span_warning("Your muscles are forcibly relaxed!") : span_warning("You relax your stance.")
 		if(visible)
-			source.visible_message("<span class='warning'>[source] relaxes [source.p_their()] stance.</span>", self_message)
+			source.visible_message(span_warning("[source] relaxes [source.p_their()] stance."), self_message)
 		else
 			to_chat(source, self_message)
 		if(playsound)
 			source.playsound_local(source, 'sound/misc/ui_toggleoff.ogg', 50, FALSE, pressure_affected = FALSE) //Slightly modified version of the toggleon sound!
+	UnregisterSignal(source, list(COMSIG_MOB_CLIENT_MOUSEMOVE, COMSIG_MOVABLE_MOVED))
 	if(hud_icon)
 		hud_icon.combat_on = FALSE
-		hud_icon.update_icon_state() // call this instead of update_icon to prevent potential lag
-	source.set_dir_on_move = initial(source.set_dir_on_move)
+		hud_icon.update_icon()
 	source.stop_active_blocking()
 	source.end_parry_sequence()
 	var/mob/living/L = source
 	L.toggle_combat_mode()
-	L.remove_status_effect(/datum/status_effect/grouped/surrender, src)
 
+///Changes the user direction to (try) keep match the pointer.
+/datum/component/combat_mode/proc/on_move(atom/movable/source, dir, atom/oldloc, forced)
+	var/mob/living/L = source
+	if((mode_flags & COMBAT_MODE_ACTIVE) && L.client)
+		L.setDir(lastmousedir, ismousemovement = TRUE)
+
+///Changes the user direction to (try) match the pointer.
+/datum/component/combat_mode/proc/onMouseMove(mob/source, object, location, control, params)
+	if(source.client.show_popup_menus)
+		return
+	source.face_atom(object, TRUE)
+	lastmousedir = source.dir
 
 /// Toggles whether the user is intentionally in combat mode. THIS should be the proc you generally use! Has built in visual/to other player feedback, as well as an audible cue to ourselves.
 /datum/component/combat_mode/proc/user_toggle_intentional_combat_mode(mob/living/source)
@@ -165,24 +177,18 @@
 	safe_disable_combat_mode(source)
 
 /// The screen button.
-/atom/movable/screen/combattoggle
+/obj/screen/combattoggle
 	name = "toggle combat mode"
-	icon = 'modular_citadel/icons/ui/screen_midnight.dmi'
+	icon = 'fallout/icons/ui/screen_midnight.dmi'
 	icon_state = "combat_off"
 	var/mutable_appearance/flashy
 	var/combat_on = FALSE ///Wheter combat mode is enabled or not, so we don't have to store a reference.
 
-/atom/movable/screen/combattoggle/update_icon()
-	// todo: report back if this causes lag
-	// it probably shouldn't because this should just run when ui style is changed
-	. = ..()
-	icon = tg_ui_icon_to_cit_ui(icon) // no-op if it's already set or unsupported
-
-/atom/movable/screen/combattoggle/Click()
+/obj/screen/combattoggle/Click()
 	if(hud && usr == hud.mymob)
 		SEND_SIGNAL(hud.mymob, COMSIG_TOGGLE_COMBAT_MODE)
 
-/atom/movable/screen/combattoggle/update_icon_state()
+/obj/screen/combattoggle/update_icon_state()
 	var/mob/living/user = hud?.mymob
 	if(!user)
 		return
@@ -193,7 +199,7 @@
 	else
 		icon_state = "combat_off"
 
-/atom/movable/screen/combattoggle/update_overlays()
+/obj/screen/combattoggle/update_overlays()
 	. = ..()
 	var/mob/living/carbon/user = hud?.mymob
 	if(!(user?.client))
@@ -204,19 +210,3 @@
 			flashy = mutable_appearance('icons/mob/screen_gen.dmi', "togglefull_flash")
 		flashy.color = user.client.prefs.hud_toggle_color
 		. += flashy //TODO - beg lummox jr for the ability to force mutable appearances or images to be created rendering from their first frame of animation rather than being based entirely around the client's frame count
-
-// surrender stuff
-/atom/movable/screen/alert/status_effect/surrender/
-	desc = "You're either in combat or being held up. Click here to surrender and show that you don't wish to fight. You will be incapacitated. (You can also say '*surrender' at any time to do this.)"
-
-/datum/emote/living/surrender
-	message = "drops to the floor and raises their hands defensively! They surrender%s!"
-	stat_allowed = SOFT_CRIT
-
-/datum/emote/living/surrender/run_emote(mob/user, params, type_override, intentional)
-	. = ..()
-	if(. && isliving(user))
-		var/mob/living/living_user = user
-		living_user.Paralyze(20 SECONDS)
-		living_user.remove_status_effect(/datum/status_effect/grouped/surrender, src)
-		SEND_SIGNAL(user, COMSIG_DISABLE_COMBAT_MODE)

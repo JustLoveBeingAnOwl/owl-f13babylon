@@ -1,6 +1,6 @@
 /obj/item/stock_parts/cell
-	name = "Fusion cell"
-	desc = "A rechargeable fusion cell."
+	name = "power cell"
+	desc = "A rechargeable electrochemical power cell."
 	icon = 'icons/obj/power.dmi'
 	icon_state = "cell"
 	item_state = "cell"
@@ -23,6 +23,8 @@
 	var/ratingdesc = TRUE
 	var/grown_battery = FALSE // If it's a grown that acts as a battery, add a wire overlay to it.
 	rad_flags = RAD_NO_CONTAMINATE // Prevent the same cheese as with the stock parts
+	obj_flags = CAN_BE_HIT // so you can LICK it
+	tastes = list("tangy metal" = 1)
 
 /obj/item/stock_parts/cell/get_cell()
 	return src
@@ -38,9 +40,11 @@
 	if(ratingdesc)
 		desc += " This one has a rating of [DisplayEnergy(maxcharge)], and you should not swallow it."
 	update_icon()
+	RegisterSignal(src, COMSIG_ATOM_LICKED, PROC_REF(lick_battery))
 
 /obj/item/stock_parts/cell/Destroy()
 	STOP_PROCESSING(SSobj, src)
+	UnregisterSignal(src, COMSIG_ATOM_LICKED)
 	return ..()
 
 /obj/item/stock_parts/cell/vv_edit_var(var_name, var_value)
@@ -75,18 +79,26 @@
 
 // use power from a cell
 /obj/item/stock_parts/cell/use(amount, can_explode = TRUE)
+	SEND_SIGNAL(src, COMSIG_CELL_USED, charge, maxcharge)
 	if(rigged && amount > 0 && can_explode)
 		explode()
 		return 0
-	if(charge < amount)
+	if(charge <= 0)
 		return 0
-	charge = (charge - amount)
+	var/used = min(charge,amount)
+	charge = (charge - used)
 	if(!istype(loc, /obj/machinery/power/apc))
 		SSblackbox.record_feedback("tally", "cell_used", 1, type)
-	return 1
+	return used
+
+// check power in a cell
+/obj/item/stock_parts/cell/proc/check_charge(amount)
+	SEND_SIGNAL(src, COMSIG_CELL_USED, charge, maxcharge)
+	return (charge >= amount)
 
 // recharge the cell
 /obj/item/stock_parts/cell/proc/give(amount)
+	SEND_SIGNAL(src, COMSIG_CELL_USED, charge, maxcharge)
 	if(rigged && amount > 0)
 		explode()
 		return 0
@@ -99,12 +111,12 @@
 /obj/item/stock_parts/cell/examine(mob/user)
 	. = ..()
 	if(rigged)
-		to_chat(user, "<span class='danger'>This power cell seems to be faulty!</span>")
+		to_chat(user, span_danger("This power cell seems to be faulty!"))
 	else
 		to_chat(user, "The charge meter reads [round(src.percent() )]%.")
 
 /obj/item/stock_parts/cell/suicide_act(mob/user)
-	user.visible_message("<span class='suicide'>[user] is licking the electrodes of [src]! It looks like [user.p_theyre()] trying to commit suicide!</span>")
+	user.visible_message(span_suicide("[user] is licking the electrodes of [src]! It looks like [user.p_theyre()] trying to commit suicide!"))
 	return (FIRELOSS)
 
 /obj/item/stock_parts/cell/on_reagent_change(changetype)
@@ -140,6 +152,7 @@
 	charge -= 10 * severity
 	if(charge < 0)
 		charge = 0
+	SEND_SIGNAL(src, COMSIG_CELL_USED, charge, maxcharge)
 
 /obj/item/stock_parts/cell/ex_act(severity, target)
 	..()
@@ -156,22 +169,22 @@
 	if(isethereal(user))
 		var/mob/living/carbon/human/H = user
 		if(charge < 100)
-			to_chat(H, "<span class='warning'>The [src] doesn't have enough power!</span>")
+			to_chat(H, span_warning("The [src] doesn't have enough power!"))
 			return
 		var/obj/item/organ/stomach/ethereal/stomach = H.getorganslot(ORGAN_SLOT_STOMACH)
 		if(stomach.crystal_charge > 146)
-			to_chat(H, "<span class='warning'>Your charge is full!</span>")
+			to_chat(H, span_warning("Your charge is full!"))
 			return
-		to_chat(H, "<span class='notice'>You clumsily channel power through the [src] and into your body, wasting some in the process.</span>")
+		to_chat(H, span_notice("You clumsily channel power through the [src] and into your body, wasting some in the process."))
 		if(do_after(user, 5, target = src))
 			if((charge < 100) || (stomach.crystal_charge > 146))
 				return
 			if(istype(stomach))
-				to_chat(H, "<span class='notice'>You receive some charge from the [src].</span>")
+				to_chat(H, span_notice("You receive some charge from the [src]."))
 				stomach.adjust_charge(3)
 				charge -= 100 //you waste way more than you receive, so that ethereals cant just steal one cell and forget about hunger
 			else
-				to_chat(H, "<span class='warning'>You can't receive charge from the [src]!</span>")
+				to_chat(H, span_warning("You can't receive charge from the [src]!"))
 		return
 
 /obj/item/stock_parts/cell/blob_act(obj/structure/blob/B)
@@ -182,6 +195,23 @@
 		return clamp(round(charge/10000), 10, 90) + rand(-5,5)
 	else
 		return 0
+
+/obj/item/stock_parts/cell/proc/lick_battery(atom/A, mob/living/carbon/licker, obj/item/hand_item/tongue)
+	if(!iscarbon(licker) || !istype(tongue))
+		return FALSE
+	var/mob/living/carbon/battery_licker = licker
+	var/damage = get_electrocute_damage()
+	if(damage > 2)
+		playsound(licker, 'sound/magic/lightningshock.ogg', 100, TRUE)
+		licker.visible_message(
+			span_warning("[licker] licks \the [src], discharging it right into their body!"),
+			span_userdanger("You lick \the [src], and it shocks the everloving daylights out of you!"),
+			span_warning("You hear a meaty ZAP!")
+		)
+		battery_licker.electrocute_act(damage, src, tongue.siemens_coefficient)
+		use(maxcharge*0.5)
+		return TRUE
+	return FALSE
 
 /obj/item/stock_parts/cell/get_part_rating()
 	return rating * maxcharge
@@ -198,7 +228,7 @@
 		var/obj/item/reagent_containers/food/snacks/cell/cell_as_food = new
 		cell_as_food.name = name
 		if(cell_as_food.attack(M, user, def_zone))
-			take_damage(40, sound_effect=FALSE)
+			take_damage(40, sound_effect=FALSE, attacked_by = user)
 		qdel(cell_as_food)
 	else
 		return ..()
@@ -208,8 +238,8 @@
 	start_charged = FALSE
 
 /obj/item/stock_parts/cell/crap
-	name = "\improper weak fusion battery"
-	desc = "You can't top the house top." //TOTALLY TRADEMARK INFRINGEMENT
+	name = "\improper Nanotrasen brand rechargeable AA battery"
+	desc = "You can't top the plasma top." //TOTALLY TRADEMARK INFRINGEMENT
 	maxcharge = 500
 	custom_materials = list(/datum/material/glass=40)
 
@@ -254,14 +284,14 @@
 	maxcharge = 2000
 
 /obj/item/stock_parts/cell/high
-	name = "high-capacity fusion cell"
+	name = "high-capacity power cell"
 	icon_state = "hcell"
 	maxcharge = 10000
 	custom_materials = list(/datum/material/glass=60)
 	chargerate = 1500
 
 /obj/item/stock_parts/cell/high/plus
-	name = "high-capacity fusion cell+"
+	name = "high-capacity power cell+"
 	desc = "Where did these come from?"
 	icon_state = "h+cell"
 	maxcharge = 15000
@@ -272,7 +302,7 @@
 	start_charged = FALSE
 
 /obj/item/stock_parts/cell/super
-	name = "super-capacity fusion cell"
+	name = "super-capacity power cell"
 	icon_state = "scell"
 	maxcharge = 20000
 	custom_materials = list(/datum/material/glass=300)
@@ -283,7 +313,7 @@
 	start_charged = FALSE
 
 /obj/item/stock_parts/cell/hyper
-	name = "hyper-capacity fusion cell"
+	name = "hyper-capacity power cell"
 	icon_state = "hpcell"
 	maxcharge = 30000
 	custom_materials = list(/datum/material/glass=400)
@@ -294,8 +324,8 @@
 	start_charged = FALSE
 
 /obj/item/stock_parts/cell/bluespace
-	name = "Ultracite fusion cell"
-	desc = "A rechargeable fusion cell inspired by pre-war technology. The technology of the future, TODAY!"
+	name = "bluespace power cell"
+	desc = "A rechargeable transdimensional power cell."
 	icon_state = "bscell"
 	maxcharge = 40000
 	custom_materials = list(/datum/material/glass=600)
@@ -306,7 +336,7 @@
 	start_charged = FALSE
 
 /obj/item/stock_parts/cell/infinite
-	name = "infinite-capacity fusion cell!"
+	name = "infinite-capacity power cell!"
 	icon_state = "icell"
 	maxcharge = 30000
 	custom_materials = list(/datum/material/glass=1000)
@@ -348,6 +378,16 @@
 	rating = 5 //self-recharge makes these desirable
 	self_recharge = 1 // Infused slime cores self-recharge, over time
 
+/obj/item/stock_parts/cell/high/slime/blue
+	name = "charged slime core"
+	desc = "A yellow slime core infused with plasma, it crackles with power."
+	icon = 'icons/mob/slimes.dmi'
+	icon_state = "yellow slime extract"
+	custom_materials = null
+	maxcharge = 5000
+	rating = 5 //self-recharge makes these desirable
+	self_recharge = 1 // Infused slime cores self-recharge, over time
+
 /obj/item/stock_parts/cell/emproof
 	name = "\improper EMP-proof cell"
 	desc = "An EMP-proof cell."
@@ -386,7 +426,7 @@
 	custom_materials = list(/datum/material/glass = 20)
 	w_class = WEIGHT_CLASS_TINY
 
-/obj/item/stock_parts/cell/emergency_light/Initialize(mapload)
+/obj/item/stock_parts/cell/emergency_light/Initialize()
 	. = ..()
 	var/area/A = get_area(src)
 	if(!A.lightswitch || !A.light_power)
@@ -419,7 +459,7 @@
 	name = "ammo cell"
 	desc = "You shouldn't be holding this."
 	cancharge = 1
-	w_class = WEIGHT_CLASS_SMALL
+	w_class = WEIGHT_CLASS_TINY
 
 /obj/item/stock_parts/cell/ammo/update_icon()
 	if(charge > 1)
@@ -428,10 +468,6 @@
 		name = "used [initial(name)]"
 	. = ..()
 
-/obj/item/stock_parts/cell/ammo/New()
-	..()
-	return
-
 // Microfusion cell - large energy weapons
 /obj/item/stock_parts/cell/ammo/mfc
 	name = "microfusion cell"
@@ -439,30 +475,35 @@
 	icon = 'icons/fallout/objects/powercells.dmi'
 	icon_state = "mfc-full"
 	maxcharge = 2000
+	w_class = WEIGHT_CLASS_SMALL
 
 /obj/item/stock_parts/cell/ammo/mfc/update_icon()
-	switch(charge)
-		if (1001 to 2000)
+	if(charge)
+		if (charge >= (maxcharge/2)+1)
 			icon_state = "mfc-full"
-		if (51 to 1000)
+		if (charge >= ((maxcharge/4)+1) && charge <= (maxcharge/2))
 			icon_state = "mfc-half"
-		if (0 to 50)
-			icon_state = "mfc-empty"
+	else
+		icon_state = "mfc-empty"
 	. = ..()
 
-/obj/item/stock_parts/cell/ammo/mfc/overcharged
-	name = "overcharged microfusion cell"
+// Enhanced Microfusion cell - large energy weapons
+/obj/item/stock_parts/cell/ammo/mfc/large
+	name = "enhanced microfusion cell"
+	desc = "A microfusion cell, typically used as ammunition for large energy weapons. This one has been modified to hold double the normal charge."
+	icon = 'icons/fallout/objects/powercells.dmi'
+	icon_state = "mfc-full"
 	maxcharge = 3000
+	w_class = WEIGHT_CLASS_SMALL
 
-/obj/item/stock_parts/cell/ammo/mfc/overcharged/update_icon()
-	switch(charge)
-		if (1501 to 3000)
-			icon_state = "mfc-full"
-		if (51 to 1500)
-			icon_state = "mfc-half"
-		if (0 to 50)
-			icon_state = "mfc-empty"
-	. = ..()
+// Crafted Microfusion cell - large energy weapons
+/obj/item/stock_parts/cell/ammo/mfc/bad
+	name = "shoddy microfusion cell"
+	desc = "A microfusion cell, typically used as ammunition for large energy weapons. This one looks a little dubious though."
+	icon = 'icons/fallout/objects/powercells.dmi' //TODO: give these bad icons
+	icon_state = "mfc-full"
+	maxcharge = 1000
+	w_class = WEIGHT_CLASS_SMALL
 
 /obj/item/stock_parts/cell/ammo/ultracite
 	name = "ultracite cell"
@@ -477,8 +518,35 @@
 	desc = "An energy cell, typically used as ammunition for small-arms energy weapons."
 	icon = 'icons/fallout/objects/powercells.dmi'
 	icon_state = "ec-full"
-	maxcharge = 1600
-	w_class = WEIGHT_CLASS_TINY
+	maxcharge = 1500
+
+/obj/item/stock_parts/cell/ammo/ec/update_icon()
+	if(charge)
+		if (charge >= (((maxcharge/3)*2)+1))
+			icon_state = "ec-full"
+		if (charge >= ((maxcharge/3)+1) && charge <= ((maxcharge/3)*2))
+			icon_state = "ec-twothirds"
+		if (charge >= ((maxcharge/4)+1) && charge <= (maxcharge/3))
+			icon_state = "ec-onethirds"
+	else
+		icon_state = "ec-empty"
+	. = ..()
+
+// Enhanced energy cell - small energy weapons
+/obj/item/stock_parts/cell/ammo/ec/large
+	name = "enhanced energy cell"
+	desc = "An energy cell, typically used as ammunition for small-arms energy weapons. This one has been modified to hold far more energy."
+	icon = 'icons/fallout/objects/powercells.dmi'
+	icon_state = "ec-full"
+	maxcharge = 2250
+
+// Crafted Energy cell - small energy weapons
+/obj/item/stock_parts/cell/ammo/ec/bad
+	name = "shoddy energy cell"
+	desc = "An energy cell, typically used as ammunition for small-arms energy weapons. This one looks a little suspect though."
+	icon = 'icons/fallout/objects/powercells.dmi' //TODO: Give these a new icon
+	icon_state = "ec-full"
+	maxcharge = 750
 
 // Microfusion breeder? Okay, sure.
 /obj/item/stock_parts/cell/ammo/breeder
@@ -487,19 +555,13 @@
 	icon = 'icons/fallout/objects/powercells.dmi'
 	icon_state = "ec-full"
 	maxcharge = 2000
-	self_recharge = 1
 
-/obj/item/stock_parts/cell/ammo/ec/update_icon()
-	switch(charge)
-		if (1101 to 1600)
-			icon_state = "ec-full"
-		if (551 to 1100)
-			icon_state = "ec-twothirds"
-		if (51 to 550)
-			icon_state = "ec-onethirds"
-		if (0 to 50)
-			icon_state = "ec-empty"
-	. = ..()
+// Microfusion breeder? Okay, sure.
+/obj/item/stock_parts/cell/ammo/breeder/xal
+	name = "S.I.D.A. breeder"
+	maxcharge = 1100
+
+
 
 // Electron charge pack - rapid fire energy
 /obj/item/stock_parts/cell/ammo/ecp
@@ -508,16 +570,35 @@
 	icon = 'icons/fallout/objects/powercells.dmi'
 	icon_state = "ecp-full"
 	maxcharge = 2400
+	w_class = WEIGHT_CLASS_SMALL
 
 /obj/item/stock_parts/cell/ammo/ecp/update_icon()
-	switch(charge)
-		if (1501 to 2400)
+	if(charge)
+		if (charge >= ((maxcharge/2)+1))
 			icon_state = "ecp-full"
-		if (101 to 1500)
+		if (charge >= ((maxcharge/4)+1) && charge <= (maxcharge/2))
 			icon_state = "ecp-half"
-		if (0 to 100)
-			icon_state = "ecp-empty"
+	else
+		icon_state = "ecp-empty"
 	. = ..()
+
+// Enhanced electron charge pack - rapid fire energy
+/obj/item/stock_parts/cell/ammo/ecp/large
+	name = "enhanced electron charge pack"
+	desc = "An electron charge pack, typically used as ammunition for rapidly-firing energy weapons. This one has been modified to hold far more energy."
+	icon = 'icons/fallout/objects/powercells.dmi'
+	icon_state = "ecp-full"
+	maxcharge = 3600
+	w_class = WEIGHT_CLASS_SMALL
+
+// Crafted Electron charge pack - bad rapid fire energy
+/obj/item/stock_parts/cell/ammo/ecp/bad
+	name = "counterfeit electron charge pack"
+	desc = "An electron charge pack, typically used as ammunition for rapidly-firing energy weapons. This one looks slightly off, somehow."
+	icon = 'icons/fallout/objects/powercells.dmi' //TODO: Give a shitty icon
+	icon_state = "ecp-full"
+	maxcharge = 1200
+	w_class = WEIGHT_CLASS_SMALL
 
 // Alien power cell
 /obj/item/stock_parts/cell/ammo/alien

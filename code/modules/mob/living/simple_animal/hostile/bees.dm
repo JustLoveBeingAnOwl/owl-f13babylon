@@ -59,7 +59,7 @@
 	var/static/beehometypecache = typecacheof(/obj/structure/beebox)
 	var/static/hydroponicstypecache = typecacheof(/obj/machinery/hydroponics)
 
-/mob/living/simple_animal/hostile/poison/bees/Initialize(mapload)
+/mob/living/simple_animal/hostile/poison/bees/Initialize()
 	. = ..()
 	generate_bee_visuals()
 	AddComponent(/datum/component/swarming)
@@ -83,7 +83,7 @@
 /mob/living/simple_animal/hostile/poison/bees/examine(mob/user)
 	. = ..()
 	if(!beehome)
-		. += "<span class='warning'>This bee is homeless!</span>"
+		. += span_warning("This bee is homeless!")
 
 /mob/living/simple_animal/hostile/poison/bees/proc/generate_bee_visuals()
 	cut_overlays()
@@ -206,7 +206,7 @@
 			beehome = BB
 			break // End loop after the first compatible find.
 
-/mob/living/simple_animal/hostile/poison/bees/toxin/Initialize(mapload)
+/mob/living/simple_animal/hostile/poison/bees/toxin/Initialize()
 	. = ..()
 	var/datum/reagent/R = pick(typesof(/datum/reagent/toxin))
 	assign_reagent(GLOB.chemical_reagents_list[R])
@@ -270,25 +270,25 @@
 				if(queen && queen.beegent)
 					qb.queen.assign_reagent(queen.beegent) //Bees use the global singleton instances of reagents, so we don't need to worry about one bee being deleted and her copies losing their reagents.
 				user.put_in_active_hand(qb)
-				user.visible_message("<span class='notice'>[user] injects [src] with royal bee jelly, causing it to split into two bees, MORE BEES!</span>","<span class ='warning'>You inject [src] with royal bee jelly, causing it to split into two bees, MORE BEES!</span>")
+				user.visible_message(span_notice("[user] injects [src] with royal bee jelly, causing it to split into two bees, MORE BEES!"),"<span class ='warning'>You inject [src] with royal bee jelly, causing it to split into two bees, MORE BEES!</span>")
 			else
-				to_chat(user, "<span class='warning'>You don't have enough royal bee jelly to split a bee in two!</span>")
+				to_chat(user, span_warning("You don't have enough royal bee jelly to split a bee in two!"))
 		else
 			var/datum/reagent/R = GLOB.chemical_reagents_list[S.reagents.get_master_reagent_id()]
 			if(R && S.reagents.has_reagent(R.type, 5))
 				S.reagents.remove_reagent(R.type,5)
 				if(R.can_synth)
 					queen.assign_reagent(R)
-					user.visible_message("<span class='warning'>[user] injects [src]'s genome with [R.name], mutating it's DNA!</span>","<span class='warning'>You inject [src]'s genome with [R.name], mutating it's DNA!</span>")
+					user.visible_message(span_warning("[user] injects [src]'s genome with [R.name], mutating it's DNA!"),span_warning("You inject [src]'s genome with [R.name], mutating it's DNA!"))
 					name = queen.name
 				else
-					user.visible_message("<span class='warning'>[user] injects [src]'s genome with [R.name]... but nothing happens.</span>","<span class='warning'>You inject [src]'s genome with [R.name]... but nothing happens.</span>")
+					user.visible_message(span_warning("[user] injects [src]'s genome with [R.name]... but nothing happens."),span_warning("You inject [src]'s genome with [R.name]... but nothing happens."))
 			else
-				to_chat(user, "<span class='warning'>You don't have enough units of that chemical to modify the bee's DNA!</span>")
+				to_chat(user, span_warning("You don't have enough units of that chemical to modify the bee's DNA!"))
 	..()
 
 
-/obj/item/queen_bee/bought/Initialize(mapload)
+/obj/item/queen_bee/bought/Initialize()
 	. = ..()
 	queen = new(src)
 
@@ -309,6 +309,11 @@
 /mob/living/simple_animal/hostile/poison/bees/short
 	desc = "These bees seem unstable and won't survive for long."
 
-/mob/living/simple_animal/hostile/poison/bees/short/Initialize(mapload)
+/mob/living/simple_animal/hostile/poison/bees/short/Initialize()
 	. = ..()
 	addtimer(CALLBACK(src, PROC_REF(death)), 50 SECONDS)
+
+/mob/living/simple_animal/hostile/poison/bees/short/frenly //these bees need to be frenly or they'd murder everyone
+	faction = list("neutral")
+	melee_damage_lower = 1 //they'll be fighting simplemobs, so they need to be robeest
+	melee_damage_upper = 10

@@ -2,7 +2,7 @@
 /obj/vehicle/ridden/space
 	name = "Generic Space Vehicle!"
 
-/obj/vehicle/ridden/space/Initialize(mapload)
+/obj/vehicle/ridden/space/Initialize()
 	. = ..()
 	var/datum/component/riding/D = LoadComponent(/datum/component/riding)
 	D.override_allow_spacemove = TRUE
@@ -11,14 +11,16 @@
 	name = "Speedbike"
 	icon = 'icons/obj/bike.dmi'
 	icon_state = "speedbike_blue"
-	layer = LYING_MOB_LAYER
-	var/cover_overlay_state = "cover_blue"
-	var/mutable_appearance/cover_overlay
+	plane = MOB_PLANE
+	layer = OBJ_LAYER
+	var/overlay_state = "cover_blue"
+	var/mutable_appearance/vehicle_overlay
 
-/obj/vehicle/ridden/space/speedbike/Initialize(mapload)
+/obj/vehicle/ridden/space/speedbike/Initialize()
 	. = ..()
-	cover_overlay = mutable_appearance(icon, cover_overlay_state, ABOVE_MOB_LAYER)
-	add_overlay(cover_overlay)
+	vehicle_overlay = mutable_appearance(icon, overlay_state)
+	vehicle_overlay.layer = ABOVE_MOB_LAYER
+	add_overlay(vehicle_overlay)
 	var/datum/component/riding/D = LoadComponent(/datum/component/riding)
 	D.set_riding_offsets(RIDING_OFFSET_ALL, list(TEXT_NORTH = list(0, -8), TEXT_SOUTH = list(0, 4), TEXT_EAST = list(-10, 5), TEXT_WEST = list( 10, 5)))
 	D.vehicle_move_delay = 0
@@ -34,7 +36,7 @@
 
 /obj/vehicle/ridden/space/speedbike/red
 	icon_state = "speedbike_red"
-	cover_overlay_state = "cover_red"
+	overlay_state = "cover_red"
 
 //BM SPEEDWAGON
 
@@ -43,16 +45,18 @@
 	desc = "Push it to the limit, walk along the razor's edge."
 	icon = 'icons/obj/car.dmi'
 	icon_state = "speedwagon"
-	layer = LYING_MOB_LAYER
-	var/static/mutable_appearance/cover_overlay = mutable_appearance('icons/obj/car.dmi', "speedwagon_cover", ABOVE_MOB_LAYER)
+	plane = MOB_PLANE
+	layer = OBJ_LAYER
 	max_buckled_mobs = 4
 	var/crash_all = FALSE //CHAOS
 	pixel_y = -48
 	pixel_x = -48
 
-/obj/vehicle/ridden/space/speedwagon/Initialize(mapload)
+/obj/vehicle/ridden/space/speedwagon/Initialize()
 	. = ..()
-	add_overlay(cover_overlay)
+	var/mutable_appearance/vehicle_overlay = mutable_appearance(icon, "speedwagon_cover")
+	vehicle_overlay.layer = ABOVE_MOB_LAYER
+	add_overlay(vehicle_overlay)
 	var/datum/component/riding/D = LoadComponent(/datum/component/riding)
 	D.vehicle_move_delay = 0
 	D.set_riding_offsets(1, list(TEXT_NORTH = list(-10, -4), TEXT_SOUTH = list(16, 3), TEXT_EAST = list(-4, 30), TEXT_WEST = list(4, -3)))
@@ -72,7 +76,7 @@
 		var/atom/throw_target = get_edge_target_turf(A, dir)
 		if(crash_all)
 			A.throw_at(throw_target, 4, 3)
-			visible_message("<span class='danger'>[src] crashes into [A]!</span>")
+			visible_message(span_danger("[src] crashes into [A]!"))
 			playsound(src, 'sound/effects/bang.ogg', 50, 1)
 		if(ishuman(A))
 			var/mob/living/carbon/human/H = A
@@ -81,7 +85,7 @@
 			H.apply_damage(rand(20,35), BRUTE)
 			if(!crash_all)
 				H.throw_at(throw_target, 4, 3)
-				visible_message("<span class='danger'>[src] crashes into [H]!</span>")
+				visible_message(span_danger("[src] crashes into [H]!"))
 				playsound(src, 'sound/effects/bang.ogg', 50, 1)
 
 /obj/vehicle/ridden/space/speedwagon/Moved()

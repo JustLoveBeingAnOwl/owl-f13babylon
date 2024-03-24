@@ -9,15 +9,16 @@
 /obj/item/storage/get_dumping_location(obj/item/storage/source,mob/user)
 	return src
 
-/obj/item/storage/Initialize(mapload)
+/obj/item/storage/Initialize()
 	. = ..()
 	PopulateContents()
 
 /obj/item/storage/ComponentInitialize()
 	AddComponent(component_type)
+	//RegisterSignal(src, COMSIG_VORE_ATOM_DIGESTED, PROC_REF(dump_everything)) // TODO: Make this work
 
 /obj/item/storage/AllowDrop()
-	return !QDELETED(src)
+	return TRUE
 
 /obj/item/storage/contents_explosion(severity, target)
 	var/in_storage = istype(loc, /obj/item/storage)? (max(0, severity - 1)) : (severity)
@@ -26,5 +27,12 @@
 		CHECK_TICK
 
 //Cyberboss says: "USE THIS TO FILL IT, NOT INITIALIZE OR NEW"
-
 /obj/item/storage/proc/PopulateContents()
+
+/obj/item/storage/proc/dump_everything(datum/source)
+	SIGNAL_HANDLER
+	SEND_SIGNAL(src, COMSIG_TRY_STORAGE_HIDE_ALL)
+	if(contents)
+		SEND_SIGNAL(src, COMSIG_TRY_STORAGE_QUICK_EMPTY)
+		return TRUE
+	//qdel(src)

@@ -55,7 +55,7 @@
 	var/mob/living/shooter
 
 /datum/component/pellet_cloud/Initialize(projectile_type=/obj/item/shrapnel, magnitude=5)
-	if(!isammocasing(parent) && !isgrenade(parent) && !islandmine(parent) && !isrocket(parent))
+	if(!isammocasing(parent) && !isgrenade(parent) && !islandmine(parent))
 		return COMPONENT_INCOMPATIBLE
 
 	if(magnitude < 1)
@@ -66,7 +66,7 @@
 
 	if(isammocasing(parent))
 		num_pellets = magnitude
-	else if(isgrenade(parent) || islandmine(parent) || isrocket(parent))
+	else if(isgrenade(parent) || islandmine(parent))
 		radius = magnitude
 
 /datum/component/pellet_cloud/Destroy(force, silent)
@@ -86,11 +86,9 @@
 		RegisterSignal(parent, COMSIG_GRENADE_PRIME, PROC_REF(create_blast_pellets))
 	else if(islandmine(parent))
 		RegisterSignal(parent, COMSIG_ITEM_MINE_TRIGGERED, PROC_REF(create_blast_pellets))
-	else if(isrocket(parent))
-		RegisterSignal(parent, COMSIG_ROCKET_IMPACT, PROC_REF(create_blast_pellets))
 
 /datum/component/pellet_cloud/UnregisterFromParent()
-	UnregisterSignal(parent, list(COMSIG_PARENT_PREQDELETED, COMSIG_PELLET_CLOUD_INIT, COMSIG_ROCKET_IMPACT, COMSIG_GRENADE_PRIME, COMSIG_GRENADE_ARMED, COMSIG_MOVABLE_MOVED, COMSIG_ITEM_MINE_TRIGGERED, COMSIG_ITEM_DROPPED))
+	UnregisterSignal(parent, list(COMSIG_PARENT_PREQDELETED, COMSIG_PELLET_CLOUD_INIT, COMSIG_GRENADE_PRIME, COMSIG_GRENADE_ARMED, COMSIG_MOVABLE_MOVED, COMSIG_MOVABLE_UNCROSSED, COMSIG_ITEM_MINE_TRIGGERED, COMSIG_ITEM_DROPPED))
 
 /**
  * create_casing_pellets() is for directed pellet clouds for ammo casings that have multiple pellets (buckshot and scatter lasers for instance)
@@ -106,16 +104,18 @@
 
 	for(var/i in 1 to num_pellets)
 		shell.ready_proj(target, user, SUPPRESSED_VERY, zone_override, fired_from)
-		if(distro)
-			if(randomspread)
-				spread = round((rand() - 0.5) * distro)
-			else //Smart spread
-				spread = round((i / num_pellets - 0.5) * distro)
+		var/angle_out = clamp(distro, -MAX_ACCURACY_OFFSET, MAX_ACCURACY_OFFSET)
+		/// Distro is the angle offset the whole thing will be centered on
+		/// spread is the max deviation from that center the pellets can be
+		if(randomspread)
+			angle_out += rand(-spread, spread) * 0.5
+		else //Smart spread
+			angle_out = round((i / num_pellets - 0.5) * max(distro, 1))
 
 		RegisterSignal(shell.BB, COMSIG_PROJECTILE_SELF_ON_HIT, PROC_REF(pellet_hit))
 		RegisterSignal(shell.BB, list(COMSIG_PROJECTILE_RANGE_OUT, COMSIG_PARENT_QDELETING), PROC_REF(pellet_range))
 		LAZYADD(pellets, shell.BB)
-		if(!shell.throw_proj(target, targloc, shooter, params, spread))
+		if(!shell.throw_proj(target, targloc, shooter, params, angle_out))
 			return
 		if(i != num_pellets)
 			shell.newshot()
@@ -157,7 +157,7 @@
 	var/self_harm_radius_mult = 3
 
 	if(lanced_by && prob(60))
-		to_chat(lanced_by, "<span class='userdanger'>Your plan to whack someone with a grenade on a stick backfires on you, literally!</span>")
+		to_chat(lanced_by, span_userdanger("Your plan to whack someone with a grenade on a stick backfires on you, literally!"))
 		self_harm_radius_mult = 1 // we'll still give the guy who got hit some extra shredding, but not 3*radius
 		pellet_delta += radius
 		for(var/i in 1 to radius)
@@ -174,13 +174,13 @@
 	for(var/M in martyrs)
 		var/mob/living/martyr = M
 		if(radius > 4)
-			martyr.visible_message("<b><span class='danger'>[martyr] heroically covers \the [parent] with [martyr.p_their()] body, absorbing a load of the shrapnel!</span></b>", "<span class='userdanger'>You heroically cover \the [parent] with your body, absorbing a load of the shrapnel!</span>")
+			martyr.visible_message("<b><span class='danger'>[martyr] heroically covers \the [parent] with [martyr.p_their()] body, absorbing a load of the shrapnel!</span></b>", span_userdanger("You heroically cover \the [parent] with your body, absorbing a load of the shrapnel!"))
 			magnitude_absorbed += round(radius * 0.5)
 		else if(radius >= 2)
-			martyr.visible_message("<b><span class='danger'>[martyr] heroically covers \the [parent] with [martyr.p_their()] body, absorbing some of the shrapnel!</span></b>", "<span class='userdanger'>You heroically cover \the [parent] with your body, absorbing some of the shrapnel!</span>")
+			martyr.visible_message("<b><span class='danger'>[martyr] heroically covers \the [parent] with [martyr.p_their()] body, absorbing some of the shrapnel!</span></b>", span_userdanger("You heroically cover \the [parent] with your body, absorbing some of the shrapnel!"))
 			magnitude_absorbed += 2
 		else
-			martyr.visible_message("<b><span class='danger'>[martyr] heroically covers \the [parent] with [martyr.p_their()] body, snuffing out the shrapnel!</span></b>", "<span class='userdanger'>You heroically cover \the [parent] with your body, snuffing out the shrapnel!</span>")
+			martyr.visible_message("<b><span class='danger'>[martyr] heroically covers \the [parent] with [martyr.p_their()] body, snuffing out the shrapnel!</span></b>", span_userdanger("You heroically cover \the [parent] with your body, snuffing out the shrapnel!"))
 			magnitude_absorbed = radius
 
 		var/pellets_absorbed = (radius ** 2) - ((radius - magnitude_absorbed - 1) ** 2)
@@ -267,15 +267,15 @@
 			var/w_bonus = wound_info_by_part[hit_part][CLOUD_POSITION_W_BONUS]
 			var/bw_bonus = wound_info_by_part[hit_part][CLOUD_POSITION_BW_BONUS]
 			var/wound_type = (initial(P.damage_type) == BRUTE) ? WOUND_BLUNT : WOUND_BURN // sharpness is handled in the wound rolling
-			wound_info_by_part -= hit_part
+			wound_info_by_part[hit_part] = null
 			hit_part.painless_wound_roll(wound_type, damage_dealt, w_bonus, bw_bonus, initial(P.sharpness))
 
 		if(num_hits > 1)
-			target.visible_message("<span class='danger'>[target] is hit by [num_hits] [proj_name]s[hit_part ? " in the [hit_part.name]" : ""]!</span>", null, null, COMBAT_MESSAGE_RANGE, target)
-			to_chat(target, "<span class='userdanger'>You're hit by [num_hits] [proj_name]s[hit_part ? " in the [hit_part.name]" : ""]!</span>")
+			target.visible_message(span_danger("[target] is hit by [num_hits] [proj_name]s[hit_part ? " in the [hit_part.name]" : ""]!"), null, null, COMBAT_MESSAGE_RANGE, target)
+			to_chat(target, span_userdanger("You're hit by [num_hits] [proj_name]s[hit_part ? " in the [hit_part.name]" : ""]!"))
 		else
-			target.visible_message("<span class='danger'>[target] is hit by a [proj_name][hit_part ? " in the [hit_part.name]" : ""]!</span>", null, null, COMBAT_MESSAGE_RANGE, target)
-			to_chat(target, "<span class='userdanger'>You're hit by a [proj_name][hit_part ? " in the [hit_part.name]" : ""]!</span>")
+			target.visible_message(span_danger("[target] is hit by a [proj_name][hit_part ? " in the [hit_part.name]" : ""]!"), null, null, COMBAT_MESSAGE_RANGE, target)
+			to_chat(target, span_userdanger("You're hit by a [proj_name][hit_part ? " in the [hit_part.name]" : ""]!"))
 	UnregisterSignal(parent, COMSIG_PARENT_PREQDELETED)
 	if(queued_delete)
 		qdel(parent)
@@ -288,10 +288,7 @@
 	LAZYINITLIST(bodies)
 	RegisterSignal(parent, COMSIG_ITEM_DROPPED, PROC_REF(grenade_dropped))
 	RegisterSignal(parent, COMSIG_MOVABLE_MOVED, PROC_REF(grenade_moved))
-	var/list/loc_connections = list(
-		COMSIG_ATOM_EXITED = PROC_REF(grenade_uncrossed),
-	)
-	AddComponent(/datum/component/connect_loc_behalf, parent, loc_connections)
+	RegisterSignal(parent, COMSIG_MOVABLE_UNCROSSED, PROC_REF(grenade_uncrossed))
 
 /// Someone dropped the grenade, so set them to the shooter in case they're on top of it when it goes off
 /datum/component/pellet_cloud/proc/grenade_dropped(obj/item/nade, mob/living/slick_willy)

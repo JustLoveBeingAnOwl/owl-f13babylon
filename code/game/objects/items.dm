@@ -1,5 +1,4 @@
 GLOBAL_DATUM_INIT(fire_overlay, /mutable_appearance, mutable_appearance('icons/effects/fire.dmi', "fire"))
-GLOBAL_DATUM_INIT(welding_sparks, /mutable_appearance, mutable_appearance('icons/effects/welding_effect.dmi', "welding_sparks", GASFIRE_LAYER, ABOVE_LIGHTING_PLANE))
 
 GLOBAL_VAR_INIT(rpg_loot_items, FALSE)
 // if true, everyone item when created will have its name changed to be
@@ -54,16 +53,20 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 	var/item_color = null //this needs deprecating, soonish
 
 	var/hitsound = null
+	/// Sound it makes when it does 0 damage to a target
+	var/pokesound = 'sound/weapons/tap.ogg'
 	var/usesound = null
 	var/throwhitsound = null
 
 	/// Weight class for how much storage capacity it uses and how big it physically is meaning storages can't hold it if their maximum weight class isn't as high as it.
 	var/w_class = WEIGHT_CLASS_NORMAL
+	
 	/// Volume override for the item, otherwise automatically calculated from w_class.
 	var/w_volume
 
 	/// The amount of stamina it takes to swing an item in a normal melee attack do not lie to me and say it's for realism because it ain't. If null it will autocalculate from w_class.
 	var/total_mass //Total mass in arbitrary pound-like values. If there's no balance reasons for an item to have otherwise, this var should be the item's weight in pounds.
+	
 	/// How long, in deciseconds, this staggers for, if null it will autocalculate from w_class and force. Unlike total mass this supports 0 and negatives.
 	var/stagger_force
 
@@ -89,12 +92,15 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 	var/mutantrace_variation = NONE //Are there special sprites for specific situations? Don't use this unless you need to.
 
 	var/body_parts_covered = 0 //see setup.dm for appropriate bit flags
+	/// The bodyparts *hidden* by the item, in case they should be different from what's covered. For things like open jackets and skimpy raider gear that should be a little bit revealing while still protective. Defaults to body_part_covered if not set
+	var/body_parts_hidden 
 	var/gas_transfer_coefficient = 1 // for leaking gas from turf to mask and vice-versa (for masks right now, but at some point, i'd like to include space helmets)
 	var/permeability_coefficient = 1 // for chemicals/diseases
 	var/siemens_coefficient = 1 // for electrical admittance/conductance (electrocution checks and shit)
 	var/slowdown = 0 // How much clothing is slowing you down. Negative values speeds you up
 	var/armour_penetration = 0 //SET BETWEEN 0 and 1, E.G. 0.5 = 50% AP. Now a percentage reduction in armor's increased effective health. DR2 CHANGE
-	var/list/allowed = null //suit storage stuff.
+	var/damage_threshold_penetration = 0 // How much DT this thing ignores. Negative values increase the target's effective DT. Cant reduce DT below zero
+	var/list/allowed = list() //suit storage stuff.
 	var/equip_delay_self = 0 //In deciseconds, how long an item takes to equip; counts only for normal clothing slots, not pockets etc.
 	var/equip_delay_other = 20 //In deciseconds, how long an item takes to put on another person
 	var/strip_delay = 40 //In deciseconds, how long an item takes to remove from another person
@@ -163,8 +169,19 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 
 	var/canMouseDown = FALSE
 
+	var/stiffness = 0 // How much recoil is caused by moving
+	var/obscuration = 0 // How much firearm accuracy is decreased
 
-/obj/item/Initialize(mapload)
+	// HUD action buttons. Only used by guns atm.
+	var/list/hud_actions
+
+	var/list/item_upgrades = list()
+	var/max_upgrades = 3
+
+	/// extra special transform
+	var/matrix/special_transform
+
+/obj/item/Initialize()
 
 	if(attack_verb)
 		attack_verb = typelist("attack_verb", attack_verb)
@@ -190,6 +207,13 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 
 	if(w_class <= WEIGHT_CLASS_NORMAL) //pulling small items doesn't slow you down much
 		drag_delay = 0.05 SECONDS
+	
+	if(isnull(body_parts_hidden))
+		body_parts_hidden = body_parts_covered
+	
+	/// Allows items to preserve their transform when picked up
+	if(!special_transform && transform != initial(transform))
+		special_transform = transform
 
 /obj/item/Destroy()
 	item_flags &= ~DROPDEL	//prevent reqdels
@@ -326,7 +350,7 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 		return
 	if(loc == user && current_equipped_slot && current_equipped_slot != SLOT_HANDS)
 		if(current_equipped_slot in user.check_obscured_slots())
-			to_chat(src, "<span class='warning'>You are unable to unequip that while wearing other garments over it!</span>")
+			to_chat(src, span_warning("You are unable to unequip that while wearing other garments over it!"))
 			return FALSE
 
 	if(resistance_flags & ON_FIRE)
@@ -341,9 +365,9 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 
 		if(can_handle_hot)
 			extinguish()
-			to_chat(user, "<span class='notice'>You put out the fire on [src].</span>")
+			to_chat(user, span_notice("You put out the fire on [src]."))
 		else
-			to_chat(user, "<span class='warning'>You burn your hand on [src]!</span>")
+			to_chat(user, span_warning("You burn your hand on [src]!"))
 			var/obj/item/bodypart/affecting = C.get_bodypart("[(user.active_hand_index % 2 == 0) ? "r" : "l" ]_arm")
 			if(affecting && affecting.receive_damage( 0, 5 ))		// 5 burn damage
 				C.update_damage_overlays()
@@ -353,25 +377,38 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 		var/mob/living/carbon/C = user
 		if(istype(C))
 			if(!C.gloves || (!(C.gloves.resistance_flags & (UNACIDABLE|ACID_PROOF))))
-				to_chat(user, "<span class='warning'>The acid on [src] burns your hand!</span>")
+				to_chat(user, span_warning("The acid on [src] burns your hand!"))
 				var/obj/item/bodypart/affecting = C.get_bodypart("[(user.active_hand_index % 2 == 0) ? "r" : "l" ]_arm")
 				if(affecting && affecting.receive_damage( 0, 5 ))		// 5 burn damage
 					C.update_damage_overlays()
 
-	if(!(interaction_flags_item & INTERACT_ITEM_ATTACK_HAND_PICKUP))		//See if we're supposed to auto pickup.
+	if(interaction_flags_item & INTERACT_ITEM_ATTACK_HAND_IS_ALT) //See if we're supposed to just altclick
+		user.AltClickOn(src)
+		return
+
+	else if(interaction_flags_item & INTERACT_ITEM_ATTACK_HAND_IS_SHIFT) //See if we're supposed to just shiftclick
+		user.ShiftClickOn(src)
+		return
+
+	if(CHECK_BITFIELD(SEND_SIGNAL(src, COMSIG_ITEM_CLICKED, user), ITEM_CLICKED_NOPICKUP))
+		return
+
+	if(!(interaction_flags_item & INTERACT_ITEM_ATTACK_HAND_PICKUP)) //See if we're supposed to auto pickup.
 		return
 
 	//Heavy gravity makes picking up things very slow.
 	var/grav = user.has_gravity()
 	if(grav > STANDARD_GRAVITY)
 		var/grav_power = min(3,grav - STANDARD_GRAVITY)
-		to_chat(user,"<span class='notice'>You start picking up [src]...</span>")
+		to_chat(user,span_notice("You start picking up [src]..."))
 		if(!do_mob(user,src,30*grav_power))
 			return
 
 
-	//If the item is in a storage item, take it out
-	SEND_SIGNAL(loc, COMSIG_TRY_STORAGE_TAKE, src, user.loc, TRUE)
+	//If the item is in a storage item, take it out. Unless it cant be removed. Then... dont
+	if(CHECK_BITFIELD(SEND_SIGNAL(loc, COMSIG_TRY_STORAGE_TAKE, src, user.loc, TRUE), NO_REMOVE_FROM_STORAGE))
+		to_chat(user,span_alert("[src] can't be taken out of [loc]!"))
+		return
 
 	if(throwing)
 		throwing.finalize(FALSE)
@@ -394,7 +431,7 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 		return
 	if(loc == user && current_equipped_slot && current_equipped_slot != SLOT_HANDS)
 		if(current_equipped_slot in user.check_obscured_slots())
-			to_chat(src, "<span class='warning'>You are unable to unequip that while wearing other garments over it!</span>")
+			to_chat(src, span_warning("You are unable to unequip that while wearing other garments over it!"))
 			return FALSE
 
 
@@ -417,7 +454,7 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 	if(!A.has_fine_manipulation)
 		if(src in A.contents) // To stop Aliens having items stuck in their pockets
 			A.dropItemToGround(src)
-		to_chat(user, "<span class='warning'>Your claws aren't capable of such fine manipulation!</span>")
+		to_chat(user, span_warning("Your claws aren't capable of such fine manipulation!"))
 		return
 	attack_paw(A)
 
@@ -451,12 +488,14 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 	if(SEND_SIGNAL(src, COMSIG_ITEM_DROPPED,user) & COMPONENT_DROPPED_RELOCATION)
 		. = ITEM_RELOCATED_BY_DROPPED
 	user?.update_equipment_speed_mods()
+	remove_hud_actions(user)
 
 // called just as an item is picked up (loc is not yet changed)
 /obj/item/proc/pickup(mob/user)
 	SHOULD_CALL_PARENT(TRUE)
 	SEND_SIGNAL(src, COMSIG_ITEM_PICKUP, user)
 	item_flags |= IN_INVENTORY
+	add_hud_actions(user)
 
 // called when "found" in pockets and storage items. Returns 1 if the search should end.
 /obj/item/proc/on_found(mob/finder)
@@ -484,7 +523,7 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 
 // called after an item is placed in an equipment slot
 // user is mob that equipped it
-// slot uses the slot_X defines found in __DEFINES/inventory.dm
+// slot uses the slot_X defines found in setup.dm
 // for items that can be placed in multiple slots
 // note this isn't called during the initial dressing of a player
 /obj/item/proc/equipped(mob/user, slot)
@@ -498,6 +537,8 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 				A.Grant(user)
 	item_flags |= IN_INVENTORY
 	user.update_equipment_speed_mods()
+	if(user.get_active_held_item() != src && user.get_inactive_held_item() != src)
+		unwield(user)
 
 //Overlays for the worn overlay so you can overlay while you overlay
 //eg: ammo counters, primed grenade flashing, etc.
@@ -539,9 +580,35 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 /obj/item/proc/ui_action_click(mob/user, actiontype)
 	attack_self(user)
 
+/obj/item/proc/add_hud_actions(mob/user)
+	if(!hud_actions || !user.client)
+		return
+
+	update_hud_actions()
+
+	for(var/action in hud_actions)
+		user.client.screen |= action
+
+/obj/item/proc/remove_hud_actions(mob/user)
+	if(!user)
+		return
+	if(!hud_actions || !user.client)
+		return
+
+	for(var/action in hud_actions)
+		user.client.screen -= action
+
+/obj/item/proc/update_hud_actions()
+	if(!hud_actions)
+		return
+
+	for(var/A in hud_actions)
+		var/obj/item/action = A
+		action.update_icon()
+
 /obj/item/proc/eyestab(mob/living/carbon/M, mob/living/carbon/user)
 	if(HAS_TRAIT(user, TRAIT_PACIFISM))
-		to_chat(user, "<span class='warning'>You don't want to harm [M]!</span>")
+		to_chat(user, span_warning("You don't want to harm [M]!"))
 		return
 	if(HAS_TRAIT(user, TRAIT_CLUMSY) && prob(50))
 		M = user
@@ -556,26 +623,26 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 			(H.wear_mask && H.wear_mask.flags_cover & MASKCOVERSEYES) || \
 			(H.glasses && H.glasses.flags_cover & GLASSESCOVERSEYES))
 			// you can't stab someone in the eyes wearing a mask!
-			to_chat(user, "<span class='danger'>You're going to need to remove that mask/helmet/glasses first!</span>")
+			to_chat(user, span_danger("You're going to need to remove that mask/helmet/glasses first!"))
 			return
 
 	if(ismonkey(M))
 		var/mob/living/carbon/monkey/Mo = M
 		if(Mo.wear_mask && Mo.wear_mask.flags_cover & MASKCOVERSEYES)
 			// you can't stab someone in the eyes wearing a mask!
-			to_chat(user, "<span class='danger'>You're going to need to remove that mask/helmet/glasses first!</span>")
+			to_chat(user, span_danger("You're going to need to remove that mask/helmet/glasses first!"))
 			return
 
 	if(isalien(M))//Aliens don't have eyes./N     slimes also don't have eyes!
-		to_chat(user, "<span class='warning'>You cannot locate any eyes on this creature!</span>")
+		to_chat(user, span_warning("You cannot locate any eyes on this creature!"))
 		return
 
 	if(isbrain(M))
-		to_chat(user, "<span class='danger'>You cannot locate any organic eyes on this brain!</span>")
+		to_chat(user, span_danger("You cannot locate any organic eyes on this brain!"))
 		return
 
 	if(IS_STAMCRIT(user))//CIT CHANGE - makes eyestabbing impossible if you're in stamina softcrit
-		to_chat(user, "<span class='danger'>You're too exhausted for that.</span>")//CIT CHANGE - ditto
+		to_chat(user, span_danger("You're too exhausted for that."))//CIT CHANGE - ditto
 		return //CIT CHANGE - ditto
 
 	src.add_fingerprint(user)
@@ -587,12 +654,12 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 	user.adjustStaminaLossBuffered(10)//CIT CHANGE - makes eyestabbing cost stamina
 
 	if(M != user)
-		M.visible_message("<span class='danger'>[user] has stabbed [M] in the eye with [src]!</span>", \
-							"<span class='userdanger'>[user] stabs you in the eye with [src]!</span>")
+		M.visible_message(span_danger("[user] has stabbed [M] in the eye with [src]!"), \
+							span_userdanger("[user] stabs you in the eye with [src]!"))
 	else
 		user.visible_message( \
-			"<span class='danger'>[user] has stabbed [user.p_them()]self in the eyes with [src]!</span>", \
-			"<span class='userdanger'>You stab yourself in the eyes with [src]!</span>" \
+			span_danger("[user] has stabbed [user.p_them()]self in the eyes with [src]!"), \
+			span_userdanger("You stab yourself in the eyes with [src]!") \
 		)
 	if(is_human_victim)
 		var/mob/living/carbon/human/U = M
@@ -613,20 +680,20 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 	if(eyes.damage >= 10)
 		M.adjust_blurriness(15)
 		if(M.stat != DEAD)
-			to_chat(M, "<span class='danger'>Your eyes start to bleed profusely!</span>")
+			to_chat(M, span_danger("Your eyes start to bleed profusely!"))
 		if(!(HAS_TRAIT(M, TRAIT_BLIND) || HAS_TRAIT(M, TRAIT_NEARSIGHT)))
-			to_chat(M, "<span class='danger'>You become nearsighted!</span>")
+			to_chat(M, span_danger("You become nearsighted!"))
 		M.become_nearsighted(EYE_DAMAGE)
 		if(prob(50))
 			if(M.stat != DEAD)
 				if(M.drop_all_held_items())
-					to_chat(M, "<span class='danger'>You drop what you're holding and clutch at your eyes!</span>")
+					to_chat(M, span_danger("You drop what you're holding and clutch at your eyes!"))
 			M.adjust_blurriness(10)
 			M.Unconscious(20)
 			M.DefaultCombatKnockdown(40)
 		if (prob(eyes.damage - 10 + 1))
 			M.become_blind(EYE_DAMAGE)
-			to_chat(M, "<span class='danger'>You go blind!</span>")
+			to_chat(M, span_danger("You go blind!"))
 
 /obj/item/clean_blood()
 	. = ..()
@@ -670,20 +737,9 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 		return hit_atom.hitby(src, 0, itempush, throwingdatum=throwingdatum)
 
 /obj/item/throw_at(atom/target, range, speed, mob/thrower, spin=1, diagonals_first = 0, datum/callback/callback, force, messy_throw = TRUE)
-	set_thrownby(thrower)
+	thrownby = thrower
 	callback = CALLBACK(src, PROC_REF(after_throw), callback, (spin && messy_throw)) //replace their callback with our own
 	. = ..(target, range, speed, thrower, spin, diagonals_first, callback, force)
-
-/obj/item/proc/set_thrownby(new_thrownby)
-	if(thrownby)
-		UnregisterSignal(thrownby, COMSIG_PARENT_QDELETING)
-	thrownby = new_thrownby
-	if(thrownby)
-		RegisterSignal(thrownby, COMSIG_PARENT_QDELETING, PROC_REF(thrownby_deleted))
-
-/obj/item/proc/thrownby_deleted(datum/source)
-	SIGNAL_HANDLER
-	set_thrownby(null)
 
 /obj/item/proc/after_throw(datum/callback/callback, messy_throw)
 	if (callback) //call the original callback
@@ -771,7 +827,7 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 
 /obj/item/proc/ignition_effect(atom/A, mob/user)
 	if(get_temperature())
-		. = "<span class='notice'>[user] lights [A] with [src].</span>"
+		. = span_notice("[user] lights [A] with [src].")
 	else
 		. = ""
 
@@ -815,8 +871,14 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 
 /obj/item/proc/on_mob_death(mob/living/L, gibbed)
 
-/obj/item/proc/grind_requirements(obj/machinery/reagentgrinder/R) //Used to check for extra requirements for grinding an object
-	return TRUE
+/obj/item/proc/grind_requirements(obj/machinery/reagentgrinder/R, silent) //Used to check for extra requirements for grinding an object
+	return FALSE
+
+/obj/item/proc/reset_transform() //Used to check for extra requirements for grinding an object
+	if(special_transform)
+		transform = special_transform
+	else
+		transform = initial(transform)
 
 //Called BEFORE the object is ground up - use this to change grind results based on conditions
 //Use "return -1" to prevent the grinding from occurring
@@ -1133,22 +1195,11 @@ GLOBAL_VAR_INIT(embedpocalypse, FALSE) // if true, all items will be able to emb
 /obj/item/proc/get_held_item_speechspans(mob/living/carbon/user)
 	return
 
-/obj/item/gun/proc/weapondraw(obj/item/gun/G, mob/living/user) // Eventually, this will be /obj/item/weapon and guns will be /obj/item/weapon/gun/etc. SOON.tm
-	user.visible_message("<span class='danger'>[user] grabs \a [G]!</span>") // probably could code in differences as to where you're picking it up from and so forth. later.
-	user.SetWeaponDrawDelay(max((4 * G.weapon_weight + 1),(user.AmountWeaponDrawDelay())))
-	// TODO: Define where you're grabbing it from, assign numbers to them, and then divide the paralyze total by that. Tables/holster/belt/back/container.
-	user.log_message("[user] pulled a [G]", INDIVIDUAL_ATTACK_LOG)
-
 /obj/item/throwing_star/proc/throwingweapondraw(obj/item/throwing_star/T, mob/living/user)
-	user.visible_message("<span class='danger'>[user] grabs \a [T]!</span>")
+	user.visible_message(span_danger("[user] grabs \a [T]!"))
 	user.SetThrowDelay(6)
 	user.log_message("[user] pulled a [T]", INDIVIDUAL_ATTACK_LOG)
 
-/obj/item/gun/proc/play_equip_sound(src, volume=50)
-	if(src && equipsound && volume)
-		var/played_sound = equipsound
-
-		if(islist(equipsound))
-			played_sound = pick(equipsound)
-
-		playsound(src, played_sound, volume, 1)
+/obj/item/proc/refresh_upgrades()
+	return
+	

@@ -11,18 +11,13 @@
 	// This is to stop squeak spam from inhand usage
 	var/last_use = 0
 	var/use_delay = 20
-
+	
 	// squeak cooldowns
 	var/last_squeak = 0
 	var/squeak_delay = 5
-
+	
 	/// chance we'll be stopped from squeaking by cooldown when something crossing us squeaks
 	var/cross_squeak_delay_chance = 33		// about 3 things can squeak at a time
-
-	///given to connect_loc to listen for something moving over target
-	var/static/list/crossed_connections = list(
-		COMSIG_ATOM_ENTERED = PROC_REF(play_squeak_crossed),
-	)
 
 /datum/component/squeak/Initialize(custom_sounds, volume_override, chance_override, step_delay_override, use_delay_override)
 	if(!isatom(parent))
@@ -30,8 +25,7 @@
 	RegisterSignal(parent, list(COMSIG_ATOM_ENTERED, COMSIG_ATOM_BLOB_ACT, COMSIG_ATOM_HULK_ATTACK, COMSIG_PARENT_ATTACKBY), PROC_REF(play_squeak))
 	if(ismovable(parent))
 		RegisterSignal(parent, list(COMSIG_MOVABLE_BUMP, COMSIG_MOVABLE_IMPACT), PROC_REF(play_squeak))
-		RegisterSignal(parent, list(COMSIG_ITEM_WEARERCROSSED), PROC_REF(play_squeak_crossed))
-		AddComponent(/datum/component/connect_loc_behalf, parent, crossed_connections)
+		RegisterSignal(parent, list(COMSIG_MOVABLE_CROSSED, COMSIG_ITEM_WEARERCROSSED), PROC_REF(play_squeak_crossed))
 		RegisterSignal(parent, COMSIG_CROSS_SQUEAKED, PROC_REF(delay_squeak))
 		RegisterSignal(parent, COMSIG_MOVABLE_DISPOSING, PROC_REF(disposing_react))
 		if(isitem(parent))
@@ -51,11 +45,6 @@
 		step_delay = step_delay_override
 	if(isnum(use_delay_override))
 		use_delay = use_delay_override
-
-/datum/component/squeak/UnregisterFromParent()
-	..()
-	if(ismovable(parent))
-		qdel(GetComponent(/datum/component/connect_loc_behalf))
 
 /datum/component/squeak/proc/play_squeak()
 	do_play_squeak()
@@ -89,7 +78,7 @@
 			if(P.original != parent)
 				return
 	var/atom/current_parent = parent
-	if(isturf(current_parent?.loc))
+	if(isturf(current_parent.loc))
 		if(do_play_squeak())
 			SEND_SIGNAL(AM, COMSIG_CROSS_SQUEAKED)
 
@@ -109,7 +98,7 @@
 	UnregisterSignal(user, COMSIG_MOVABLE_DISPOSING)
 
 // Disposal pipes related shit
-/datum/component/squeak/proc/disposing_react(datum/source, obj/structure/disposalholder/holder, obj/machinery/disposal/disposal_source)
+/datum/component/squeak/proc/disposing_react(datum/source, obj/structure/disposalholder/holder, obj/machinery/disposal/source)
 	//We don't need to worry about unregistering this signal as it will happen for us automaticaly when the holder is qdeleted
 	RegisterSignal(holder, COMSIG_ATOM_DIR_CHANGE, PROC_REF(holder_dir_change))
 

@@ -4,11 +4,6 @@
 	var/expire_time
 	var/min_clean_strength = CLEAN_WEAK
 
-	///given to connect_loc to listen for something moving over target
-	var/static/list/crossed_connections = list(
-		COMSIG_ATOM_ENTERED = PROC_REF(try_infect_crossed),
-	)
-
 /datum/component/infective/Initialize(list/datum/disease/_diseases, expire_in)
 	if(islist(_diseases))
 		diseases = _diseases
@@ -23,7 +18,7 @@
 	RegisterSignal(parent, COMSIG_COMPONENT_CLEAN_ACT, PROC_REF(clean))
 	RegisterSignal(parent, COMSIG_MOVABLE_BUCKLE, PROC_REF(try_infect_buckle))
 	RegisterSignal(parent, COMSIG_MOVABLE_BUMP, PROC_REF(try_infect_collide))
-	AddComponent(/datum/component/connect_loc_behalf, parent, crossed_connections)
+	RegisterSignal(parent, COMSIG_MOVABLE_CROSSED, PROC_REF(try_infect_crossed))
 	RegisterSignal(parent, COMSIG_MOVABLE_IMPACT_ZONE, PROC_REF(try_infect_impact_zone))
 	if(isitem(parent))
 		RegisterSignal(parent, COMSIG_ITEM_ATTACK_ZONE, PROC_REF(try_infect_attack_zone))
@@ -33,10 +28,6 @@
 			RegisterSignal(parent, COMSIG_FOOD_EATEN, PROC_REF(try_infect_eat))
 	else if(istype(parent, /obj/effect/decal/cleanable/blood/gibs))
 		RegisterSignal(parent, COMSIG_GIBS_STREAK, PROC_REF(try_infect_streak))
-
-/datum/component/squeak/UnregisterFromParent()
-	..()
-	qdel(GetComponent(/datum/component/connect_loc_behalf))
 
 /datum/component/infective/proc/try_infect_eat(datum/source, mob/living/eater, mob/living/feeder)
 	for(var/V in diseases)

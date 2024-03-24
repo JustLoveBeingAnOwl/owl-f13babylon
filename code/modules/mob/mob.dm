@@ -14,17 +14,12 @@
 			var/mob/dead/observe = M
 			observe.reset_perspective(null)
 	qdel(hud_used)
-	QDEL_LIST(client_colours)
-	clear_client_in_contents()
-	QDEL_LIST(mob_spell_list)
-	QDEL_LIST(actions)
+	for(var/cc in client_colours)
+		qdel(cc)
 	client_colours = null
 	ghostize()
 
-	if(mind && mind.current == src)
-		mind.current = null
-
-	return ..()
+	return ..() // Coyote Modify, Mobs wont lag the server when gibbed :o
 
 /mob/Initialize()
 	GLOB.mob_list += src
@@ -40,18 +35,28 @@
 			continue
 		var/datum/atom_hud/alternate_appearance/AA = v
 		AA.onNewMob(src)
-	set_nutrition(rand(NUTRITION_LEVEL_START_MIN, NUTRITION_LEVEL_START_MAX), rand(THIRST_LEVEL_START_MIN, THIRST_LEVEL_START_MAX))
+	set_nutrition(rand(NUTRITION_LEVEL_START_MIN, NUTRITION_LEVEL_START_MAX))
 	. = ..()
 	update_config_movespeed()
 	update_movespeed(TRUE)
+	become_hearing_sensitive()
+
+/mob/ComponentInitialize()
+	. = ..()
+	if(!isnull(waddle_amount) && !isnull(waddle_up_time) && !isnull(waddle_side_time))
+		AddComponent(/datum/component/waddling, waddle_amount, waddle_up_time, waddle_side_time)
 
 /mob/GenerateTag()
 	tag = "mob_[next_mob_id++]"
 
+/// Prepare, or re-prepare
 /atom/proc/prepare_huds()
-	hud_list = list()
+	if(!islist(hud_list))
+		hud_list = list()
 	for(var/hud in hud_possible)
 		var/hint = hud_possible[hud]
+		if(hud_list[hud])
+			continue
 		switch(hint)
 			if(HUD_LIST_LIST)
 				hud_list[hud] = list()
@@ -69,22 +74,25 @@
 
 	var/datum/gas_mixture/environment = loc.return_air()
 
-	var/t =	"<span class='notice'>Coordinates: [x],[y] \n</span>"
-	t +=	"<span class='danger'>Temperature: [environment.return_temperature()] \n</span>"
+	var/t =	span_notice("Coordinates: [x],[y] \n")
+	t +=	span_danger("Temperature: [environment.return_temperature()] \n")
 	for(var/id in environment.get_gases())
 		if(environment.get_moles(id))
-			t+="<span class='notice'>[GLOB.gas_data.names[id]]: [environment.get_moles(id)] \n</span>"
+			t+=span_notice("[GLOB.gas_data.names[id]]: [environment.get_moles(id)] \n")
 
 	to_chat(usr, t)
 
 /mob/proc/get_photo_description(obj/item/camera/camera)
 	return "a ... thing?"
 
-/mob/proc/show_message(msg, type, alt_msg, alt_type)//Message, type of message (1 or 2), alternative message, alt message type (1 or 2)
+/mob/proc/show_message(msg, type, alt_msg, alt_type, pref_check)//Message, type of message (1 or 2), alternative message, alt message type (1 or 2)
 	if(audiovisual_redirect)
 		audiovisual_redirect.show_message(msg ? "<avredirspan class='small'>[msg]</avredirspan>" : null, type, alt_msg ? "<avredirspan class='small'>[alt_msg]</avredirspan>" : null, alt_type)
 
 	if(!client)
+		return
+
+	if(pref_check && !CHECK_PREFS(src, pref_check))
 		return
 
 	msg = copytext_char(msg, 1, MAX_MESSAGE_LEN)
@@ -131,12 +139,22 @@
  * * target (optional) is the other mob involved with the visible message. For example, the attacker in many combat messages.
  * * target_message (optional) is what the target mob will see e.g. "[src] does something to you!"
  */
-/atom/proc/visible_message(message, self_message, blind_message, vision_distance = DEFAULT_MESSAGE_RANGE, ignored_mobs, mob/target, target_message, visible_message_flags = NONE)
+/atom/proc/visible_message(
+		message,
+		self_message,
+		blind_message,
+		vision_distance = DEFAULT_MESSAGE_RANGE,
+		ignored_mobs,
+		mob/target,
+		target_message,
+		visible_message_flags = NONE,
+		pref_check
+		)
 	var/turf/T = get_turf(src)
 	if(!T)
 		return
 	var/list/hearers = get_hearers_in_view(vision_distance, src) //caches the hearers and then removes ignored mobs.
-	if(!length(hearers))
+	if(!length(hearers)) // yes, hearers is correct
 		return
 	hearers -= ignored_mobs
 
@@ -149,42 +167,40 @@
 		//the light object is dark and not invisible to us, darkness does not matter if you're directly next to the target
 		else if(T.lighting_object && T.lighting_object.invisibility <= target.see_invisible && T.is_softly_lit() && !in_range(T,target))
 			msg = blind_message
-		if(msg)
+		if(msg && !CHECK_BITFIELD(visible_message_flags, ONLY_OVERHEAD))
+			if(CHECK_BITFIELD(visible_message_flags, PUT_NAME_IN))
+				msg = "<b>[src]</b> [msg]"
 			target.show_message(msg, MSG_VISUAL,blind_message, MSG_AUDIBLE)
 	if(self_message)
 		hearers -= src
 
 	var/raw_msg = message
-	if(visible_message_flags & EMOTE_MESSAGE)
-		message = "<span class='emote'><b>[src]</b> [message]</span>"
+	//if(visible_message_flags & EMOTE_MESSAGE)
+	//	message = "<span class='emote'><b>[src]</b> [message]</span>"
 
 	for(var/mob/M in hearers)
 		if(!M.client)
 			continue
+		if(pref_check && !CHECK_PREFS(M, pref_check))
+			continue
 		//This entire if/else chain could be in two lines but isn't for readabilty's sake.
 		var/msg = message
-		var/msg_type = MSG_VISUAL
-		if(M.see_invisible<invisibility )//if src is invisible to us
+		if(M.see_invisible<invisibility || (T != loc && T != src))//if src is invisible to us or is inside something (and isn't a turf),
 			msg = blind_message
-			msg_type = MSG_AUDIBLE
-		else if(T != loc && T != src) //or if src is inside something and not a turf.
-			if(M != loc) // Only give the blind message to hearers that aren't the location
-				msg = blind_message
-				msg_type = MSG_AUDIBLE
-		else if(SEND_SIGNAL(M, COMSIG_MOB_GET_VISIBLE_MESSAGE, src, message, vision_distance, ignored_mobs) & COMPONENT_NO_VISIBLE_MESSAGE)
-			msg = blind_message
-			msg_type = MSG_AUDIBLE
-		if(!msg)
-			continue
+
 		if(visible_message_flags & EMOTE_MESSAGE && runechat_prefs_check(M, visible_message_flags) && !M.is_blind())
 			M.create_chat_message(src, raw_message = raw_msg, runechat_flags = visible_message_flags)
-		M.show_message(msg, msg_type, blind_message, MSG_AUDIBLE)
+
+		if(msg && !CHECK_BITFIELD(visible_message_flags, ONLY_OVERHEAD))
+			if(CHECK_BITFIELD(visible_message_flags, PUT_NAME_IN))
+				msg = "<b>[src]</b> [msg]"
+			M.show_message(msg, MSG_VISUAL, blind_message, MSG_AUDIBLE)
 
 ///Adds the functionality to self_message.
-/mob/visible_message(message, self_message, blind_message, vision_distance = DEFAULT_MESSAGE_RANGE, list/ignored_mobs, mob/target, target_message, visible_message_flags = NONE)
+mob/visible_message(message, self_message, blind_message, vision_distance = DEFAULT_MESSAGE_RANGE, list/ignored_mobs, mob/target, target_message, visible_message_flags = NONE, pref_check)
 	. = ..()
 	if(self_message && target != src)
-		show_message(self_message, MSG_VISUAL, blind_message, MSG_AUDIBLE)
+		show_message(self_message, MSG_VISUAL, blind_message, MSG_AUDIBLE, pref_check)
 
 /**
  * Show a message to all mobs in earshot of this atom
@@ -197,7 +213,15 @@
  * * hearing_distance (optional) is the range, how many tiles away the message can be heard.
  * * ignored_mobs (optional) doesn't show any message to any given mob in the list.
  */
-/atom/proc/audible_message(message, deaf_message, hearing_distance = DEFAULT_MESSAGE_RANGE, self_message, ignored_mobs, audible_message_flags = NONE)
+/atom/proc/audible_message(
+		message,
+		deaf_message,
+		hearing_distance = DEFAULT_MESSAGE_RANGE,
+		self_message,
+		ignored_mobs,
+		audible_message_flags = NONE,
+		pref_check
+		)
 	var/turf/T = get_turf(src)
 	if(!T)
 		return
@@ -208,12 +232,17 @@
 	if(self_message)
 		hearers -= src
 	var/raw_msg = message
-	if(audible_message_flags & EMOTE_MESSAGE)
-		message = "<span class='emote'><b>[src]</b> [message]</span>"
+	if(CHECK_BITFIELD(audible_message_flags, PUT_NAME_IN))
+		message = "<b>[src]</b> [message]"
+	//if(audible_message_flags & EMOTE_MESSAGE)
+	//	message = "<span class='emote'><b>[src]</b> [message]</span>"
 	for(var/mob/M in hearers)
+		if(pref_check && !CHECK_PREFS(M, pref_check))
+			continue
 		if(audible_message_flags & EMOTE_MESSAGE && runechat_prefs_check(M, audible_message_flags) && M.can_hear())
 			M.create_chat_message(src, raw_message = raw_msg, runechat_flags = audible_message_flags)
-		M.show_message(message, MSG_AUDIBLE, deaf_message, MSG_VISUAL)
+		if(!CHECK_BITFIELD(audible_message_flags, ONLY_OVERHEAD))
+			M.show_message(message, MSG_AUDIBLE, deaf_message, MSG_VISUAL)
 
 /**
  * Show a message to all mobs in earshot of this one
@@ -227,10 +256,10 @@
  * * hearing_distance (optional) is the range, how many tiles away the message can be heard.
  * * ignored_mobs (optional) doesn't show any message to any given mob in the list.
  */
-/mob/audible_message(message, deaf_message, hearing_distance = DEFAULT_MESSAGE_RANGE, self_message, list/ignored_mobs, audible_message_flags = NONE)
+/mob/audible_message(message, deaf_message, hearing_distance = DEFAULT_MESSAGE_RANGE, self_message, list/ignored_mobs, audible_message_flags = NONE, pref_check)
 	. = ..()
 	if(self_message)
-		show_message(self_message, MSG_AUDIBLE, deaf_message, MSG_VISUAL)
+		show_message(self_message, MSG_AUDIBLE, deaf_message, MSG_VISUAL, pref_check)
 
 
 ///Returns the client runechat visible messages preference according to the message type.
@@ -273,7 +302,7 @@
 		var/obj/item/I = get_item_by_slot(slot)
 		if(istype(I))
 			if(slot in check_obscured_slots())
-				to_chat(src, "<span class='warning'>You are unable to unequip that while wearing other garments over it!</span>")
+				to_chat(src, span_warning("You are unable to unequip that while wearing other garments over it!"))
 				return FALSE
 			I.attack_hand(src)
 
@@ -342,7 +371,7 @@
 		return
 
 	if(is_blind())
-		to_chat(src, "<span class='warning'>Something is there but you can't see it!</span>")
+		to_chat(src, span_warning("Something is there but you can't see it!"))
 		return
 
 	face_atom(A)
@@ -360,11 +389,12 @@
 	else
 		result = A.examine(src) // if a tree is examined but no client is there to see it, did the tree ever really exist?
 
-	if(!length(result))
+	if(!result)
 		return
-	else
-		to_chat(src, result.Join("\n"))
-		SEND_SIGNAL(src, COMSIG_MOB_EXAMINATE, A)
+	if(LAZYLEN(result) <= 0) // A robot tried to examine their health bar and it runtimed cus it returned an empty list. Darn robot.
+		return
+	to_chat(src, result.Join("\n"))
+	SEND_SIGNAL(src, COMSIG_MOB_EXAMINATE, A)
 
 /mob/proc/clear_from_recent_examines(atom/A)
 	if(!client)
@@ -393,14 +423,14 @@
 	// check to see if their face is blocked (or if they're not a carbon, in which case they can't block their face anyway)
 	if(!istype(examined_carbon) || (!(examined_carbon.wear_mask && examined_carbon.wear_mask.flags_inv & HIDEFACE) && !(examined_carbon.head && examined_carbon.head.flags_inv & HIDEFACE)))
 		if(SEND_SIGNAL(src, COMSIG_MOB_EYECONTACT, examined_mob, TRUE) != COMSIG_BLOCK_EYECONTACT)
-			var/msg = "<span class='smallnotice'>You make eye contact with [examined_mob].</span>"
-			addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(to_chat), src, msg), 3) // so the examine signal has time to fire and this will print after
+			var/msg = span_smallnotice("You make eye contact with [examined_mob].")
+			addtimer(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(to_chat), src, msg), 3) // so the examine signal has time to fire and this will print after
 
 	var/mob/living/carbon/us_as_carbon = src // i know >casting as subtype, but this isn't really an inheritable check
 	if(!istype(us_as_carbon) || (!(us_as_carbon.wear_mask && us_as_carbon.wear_mask.flags_inv & HIDEFACE) && !(us_as_carbon.head && us_as_carbon.head.flags_inv & HIDEFACE)))
 		if(SEND_SIGNAL(examined_mob, COMSIG_MOB_EYECONTACT, src, FALSE) != COMSIG_BLOCK_EYECONTACT)
-			var/msg = "<span class='smallnotice'>[src] makes eye contact with you.</span>"
-			addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(to_chat), examined_mob, msg), 3)
+			var/msg = span_smallnotice("[src] makes eye contact with you.")
+			addtimer(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(to_chat), examined_mob, msg), 3)
 
 //same as above
 //note: ghosts can point, this is intended
@@ -497,7 +527,7 @@
 		return
 	/* check player is actually dead */
 	if((stat != DEAD || !( SSticker )))
-		to_chat(usr, "<span class='boldnotice'>You must be dead to use this!</span>")
+		to_chat(usr, span_boldnotice("You must be dead to use this!"))
 		return
 
 	var/is_admin = check_rights_for(src.client, R_ADMIN)
@@ -515,7 +545,7 @@
 	/*end src.mind.current - we survived the various checks, so perform the actual respawn */
 	log_game("[key_name(usr)] used abandon mob.")
 
-	to_chat(usr, "<span class='boldnotice'>Please roleplay correctly!</span>")
+	to_chat(usr, span_boldnotice("Please roleplay correctly!"))
 
 	if(!client)
 		log_game("[key_name(usr)] AM failed due to disconnect.")
@@ -765,9 +795,11 @@ GLOBAL_VAR_INIT(exploit_warn_spam_prevention, 0)
 
 /mob/proc/swap_hand()
 	var/obj/item/held_item = get_active_held_item()
-	if(SEND_SIGNAL(src, COMSIG_MOB_SWAP_HANDS, held_item) & COMPONENT_BLOCK_SWAP)
-		to_chat(src, "<span class='warning'>Your other hand is too busy holding [held_item].</span>")
+	var/obj/item/new_item = get_inactive_held_item()
+	if((SEND_SIGNAL(src, COMSIG_MOB_SWAP_HANDS, held_item) & COMPONENT_BLOCK_SWAP))
 		return FALSE
+	if(istype(new_item,/obj/item/twohanded/offhand))
+		held_item.attempt_wield(src)
 	return TRUE
 
 /mob/proc/activate_hand(selhand)
@@ -801,8 +833,7 @@ GLOBAL_VAR_INIT(exploit_warn_spam_prevention, 0)
 		var/obj/effect/proc_holder/spell/S = X
 		if(istype(S, spell))
 			mob_spell_list -= S
-			if(!QDELETED(S))
-				qdel(S)
+			qdel(S)
 	if(client)
 		client << output(null, "statbrowser:check_spells")
 
@@ -885,6 +916,10 @@ GLOBAL_VAR_INIT(exploit_warn_spam_prevention, 0)
 	return faction_check(faction, target.faction, FALSE)
 
 /proc/faction_check(list/faction_A, list/faction_B, exact_match)
+	if(!islist(faction_A))
+		faction_A = list(faction_A)
+	if(!islist(faction_B))
+		faction_B = list(faction_B)
 	var/list/match_list
 	if(exact_match)
 		match_list = faction_A&faction_B //only items in both lists
@@ -963,7 +998,7 @@ GLOBAL_VAR_INIT(exploit_warn_spam_prevention, 0)
 
 /mob/proc/sync_lighting_plane_alpha()
 	if(hud_used)
-		var/atom/movable/screen/plane_master/lighting/L = hud_used.plane_masters["[LIGHTING_PLANE]"]
+		var/obj/screen/plane_master/lighting/L = hud_used.plane_masters["[LIGHTING_PLANE]"]
 		if (L)
 			L.alpha = lighting_alpha
 
@@ -1069,10 +1104,6 @@ GLOBAL_VAR_INIT(exploit_warn_spam_prevention, 0)
 /mob/proc/set_nutrition(change) //Seriously fuck you oldcoders.
 	nutrition = max(0, change)
 
-///Adjust the thirst of a mob
-/mob/proc/adjust_thirst(change, max = INFINITY)
-	water = clamp(water + change, 0, max)
-
 /mob/setMovetype(newval)
 	. = ..()
 	update_movespeed(FALSE)
@@ -1123,8 +1154,24 @@ GLOBAL_VAR_INIT(exploit_warn_spam_prevention, 0)
 /mob/proc/on_item_dropped(obj/item/I)
 	return
 
-/mob/proc/clear_client_in_contents()
-	if(client?.movingmob) //In the case the client was transferred to another mob and not deleted.
-		client.movingmob.client_mobs_in_contents -= src
-		UNSETEMPTY(client.movingmob.client_mobs_in_contents)
-		client.movingmob = null
+
+/mob/verb/tilt_leftward()
+	set hidden = FALSE
+	tilt_left()
+
+/mob/proc/tilt_left()
+	if(!canface() || is_tilted < -50)
+		return FALSE
+	transform = transform.Turn(-1)
+	is_tilted--
+
+/mob/verb/tilt_rightward()
+	set hidden = FALSE
+	tilt_right()
+
+/mob/proc/tilt_right()
+	if(!canface() || is_tilted > 50)
+		return FALSE
+	transform = transform.Turn(1)
+	is_tilted++
+

@@ -15,7 +15,7 @@
 	var/self_delay = FALSE //pills are instant, this is because patches inheret their aplication from pills
 	var/dissolvable = TRUE
 
-/obj/item/reagent_containers/pill/Initialize(mapload)
+/obj/item/reagent_containers/pill/Initialize()
 	. = ..()
 	if(!icon_state)
 		icon_state = "pill[rand(1,20)]"
@@ -36,22 +36,22 @@
 		return FALSE
 
 	if(M == user)
-		M.visible_message("<span class='notice'>[user] attempts to [apply_method] [src].</span>")
+		M.visible_message(span_notice("[user] attempts to [apply_method] [src]."))
 		if(self_delay)
 			if(!do_mob(user, M, self_delay))
 				return FALSE
-		to_chat(M, "<span class='notice'>You [apply_method] [src].</span>")
+		to_chat(M, span_notice("You [apply_method] [src]."))
 	else
-		M.visible_message("<span class='danger'>[user] attempts to force [M] to [apply_method] [src].</span>", \
-							"<span class='userdanger'>[user] attempts to force [M] to [apply_method] [src].</span>")
+		M.visible_message(span_danger("[user] attempts to force [M] to [apply_method] [src]."), \
+							span_userdanger("[user] attempts to force [M] to [apply_method] [src]."))
 		if(!do_mob(user, M))
 			return FALSE
-		M.visible_message("<span class='danger'>[user] forces [M] to [apply_method] [src].</span>", \
-							"<span class='userdanger'>[user] forces [M] to [apply_method] [src].</span>")
+		M.visible_message(span_danger("[user] forces [M] to [apply_method] [src]."), \
+							span_userdanger("[user] forces [M] to [apply_method] [src]."))
 
 	var/makes_me_think = pick(strings("redpill.json", "redpill_questions"))
 	if(icon_state == "pill4" && prob(5)) //you take the red pill - you stay in Wonderland, and I show you how deep the rabbit hole goes
-		addtimer(CALLBACK(GLOBAL_PROC, /proc/to_chat, M, "<span class='notice'>[makes_me_think]</span>"), 50)
+		addtimer(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(to_chat), M, span_notice("[makes_me_think]")), 50)
 
 	log_combat(user, M, "fed", reagents.log_list())
 	if(reagents.total_volume)
@@ -67,15 +67,15 @@
 	if(!dissolvable || !target.is_refillable())
 		return
 	if(target.is_drainable() && !target.reagents.total_volume)
-		to_chat(user, "<span class='warning'>[target] is empty! There's nothing to dissolve [src] in.</span>")
+		to_chat(user, span_warning("[target] is empty! There's nothing to dissolve [src] in."))
 		return
 
 	if(target.reagents.holder_full())
-		to_chat(user, "<span class='warning'>[target] is full.</span>")
+		to_chat(user, span_warning("[target] is full."))
 		return
 
-	user.visible_message("<span class='warning'>[user] slips something into [target]!</span>",
-						"<span class='notice'>You dissolve [src] in [target].</span>", vision_distance = 2)
+	user.visible_message(span_warning("[user] slips something into [target]!"),
+						span_notice("You dissolve [src] in [target]."), vision_distance = 2)
 	log_combat(user, target, "spiked", src, reagents.log_list())
 	reagents.trans_to(target, reagents.total_volume, log = TRUE)
 	qdel(src)
@@ -217,6 +217,10 @@
 	list_reagents = list(/datum/reagent/mutationtoxin/shadow = 1)
 */
 //////////////////////////////////////// drugs
+/obj/item/reagent_containers/pill/zoom
+	name = "zoom pill"
+	list_reagents = list(/datum/reagent/medicine/synaptizine = 10, /datum/reagent/drug/nicotine = 10, /datum/reagent/drug/methamphetamine = 1)
+
 
 /obj/item/reagent_containers/pill/happy
 	name = "happy pill"
@@ -246,7 +250,7 @@
 	var/static/list/descs = list("Your feeling is telling you no, but...","Drugs are expensive, you can't afford not to eat any pills that you find."\
 	, "Surely, there's no way this could go bad.")
 
-/obj/item/reagent_containers/pill/floorpill/Initialize(mapload)
+/obj/item/reagent_containers/pill/floorpill/Initialize()
 	list_reagents = list(get_random_reagent_id() = rand(10,50))
 	. = ..()
 	name = pick(names)
@@ -264,6 +268,21 @@
 	icon_state = "pill_mentat"
 	list_reagents = list(/datum/reagent/medicine/mentat = 10)
 
+/obj/item/reagent_containers/pill/mentat/grape
+	name = "Grape Mentat"
+	color = "#6699ff" //red and blue make purple
+	list_reagents = list(/datum/reagent/medicine/mentat = 10, /datum/reagent/consumable/grapejuice = 5)
+
+/obj/item/reagent_containers/pill/mentat/orange
+	name = "Orange Mentat"
+	color = "#ffff00" //red and yellow make orange
+	list_reagents = list(/datum/reagent/medicine/mentat = 10, /datum/reagent/consumable/orangejuice = 5)
+
+/obj/item/reagent_containers/pill/mentat/berry
+	name = "Berry Mentat"
+	color = null //just red for this one
+	list_reagents = list(/datum/reagent/medicine/mentat = 10, /datum/reagent/consumable/berryjuice = 5)
+
 /obj/item/reagent_containers/pill/fixer
 	name = "Fixer pill"
 	desc = "A bitter pill that is known to rapidly treat the addictions, withdrawal effects, and other drawbacks of other chemicals. \
@@ -274,10 +293,10 @@
 
 /obj/item/reagent_containers/pill/radx
 	name = "Rad-X pill"
-	desc = "A pill that bolsters the user's natural resistance to background radiation."
+	desc = "A pill that reduces radiation buildup, totally shielding the user at high doses. Does not treat radiation sickness, best taken before exposure."
 	icon = 'icons/fallout/objects/medicine/drugs.dmi'
 	icon_state = "pill_radx"
-	list_reagents = list(/datum/reagent/medicine/radx = 10)
+	list_reagents = list(/datum/reagent/medicine/radx = 20)
 
 /obj/item/reagent_containers/pill/buffout
 	name = "Buffout pill"
@@ -287,15 +306,30 @@
 	icon_state = "pill_buff"
 	list_reagents = list(/datum/reagent/drug/buffout = 10)
 
-//Crashpoint Fallout
-/obj/item/reagent_containers/pill/waterpuretablet
-	name = "Water Purification Tablet"
-	desc = "A pill that can simply be dropped into 50u of water to make it safe for drinking."
-	icon_state = "pill8"
-	list_reagents = list(/datum/reagent/watertabletpowder = 10)
+/obj/item/reagent_containers/pill/fiery_purgative
+	name = "Fiery purgative"
+	desc = "A home remedy that has been specially mixed to purge many things from the body. use at your own risk."
+	icon = 'icons/fallout/objects/medicine/drugs.dmi'
+	icon_state = "patch_berserkerpowder"
+	list_reagents = list(/datum/reagent/medicine/fiery_purgative = 10)
+	self_delay = 5
 
-/obj/item/reagent_containers/pill/foodpaste
-	name = "Nutriment Tablet"
-	desc = "A pill with all the required material needed to survive. Probably."
-	icon_state = "bandaid_chew"
-	list_reagents = list(/datum/reagent/consumable/nutriment = 50)
+/obj/item/reagent_containers/pill/antivenom // 25 tox heal and 25u purged toxins
+	name = "Antivenom"
+	desc = "A specially prepared solution that stimulates the production of antibodies to fight venoms and poisons."
+	icon = 'icons/fallout/objects/medicine/drugs.dmi'
+	icon_state = "patch_hydra" //awaiting unique icon for antivenom
+	list_reagents = list(/datum/reagent/medicine/antitoxin = 5)
+	self_delay = 5
+
+
+/obj/item/reagent_containers/pill/random
+	name = "randomized pill"
+	desc = "A long forgotten prescription. who knows what it contains."
+
+/obj/item/reagent_containers/pill/random/Initialize()
+	icon_state = "pill[rand(1,29)]"
+	list_reagents = list(get_random_reagent_id() = rand(5,15))
+	var/pill_name = pick("candy", "fun", "discarded", "forgotten", "old", "ancient", "random", "unknown", "strange", "abandoned", "hobo", "trash", "forsaken", "alluring", "peculiar", "anomalous", "unfamiliar", "odd", "funny", "tasty", "neglected", "mysterious", "strange")
+	name = "[pill_name] pill"
+	. = ..()

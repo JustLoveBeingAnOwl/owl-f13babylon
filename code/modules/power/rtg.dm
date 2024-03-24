@@ -19,7 +19,7 @@
 
 	var/irradiate = TRUE // RTGs irradiate surroundings, but only when panel is open.
 
-/obj/machinery/power/rtg/Initialize(mapload)
+/obj/machinery/power/rtg/Initialize()
 	. = ..()
 	connect_to_network()
 
@@ -53,10 +53,6 @@
 	power_gen = 1250 // 2500 on T1, 10000 on T4.
 	circuit = /obj/item/circuitboard/machine/rtg/advanced
 
-/obj/machinery/power/rtg/advanced/enclave
-	desc = "An advanced RTG capable of moderating isotope decay, increasing power output but reducing lifetime."
-	power_gen = 16500
-
 // Void Core, power source for Abductor ships and bases.
 // Provides a lot of power, but tends to explode when mistreated.
 
@@ -76,11 +72,11 @@
 	if(going_kaboom)
 		return
 	going_kaboom = TRUE
-	visible_message("<span class='danger'>\The [src] lets out an shower of sparks as it starts to lose stability!</span>",\
-		"<span class='italics'>You hear a loud electrical crack!</span>")
+	visible_message(span_danger("\The [src] lets out an shower of sparks as it starts to lose stability!"),\
+		span_italic("You hear a loud electrical crack!"))
 	playsound(src.loc, 'sound/magic/lightningshock.ogg', 100, 1, extrarange = 5)
 	tesla_zap(src, 5, power_gen * 0.05)
-	addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(explosion), get_turf(src), 2, 3, 4, 8), 100) // Not a normal explosion.
+	addtimer(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(explosion), get_turf(src), 2, 3, 4, 8), 100) // Not a normal explosion.
 
 /obj/machinery/power/rtg/abductor/bullet_act(obj/item/projectile/Proj)
 	. = ..()

@@ -39,9 +39,6 @@
 	//If this is set to 1, a text is printed to the player when jobs are assigned, telling him that he should let admins know that he has to disconnect.
 	var/req_admin_notify
 
-	//If this is set to 1, a text is printed to the player when jobs are assigned, telling him that he cannot engage in raids.
-	var/roleplay_exclusive_notify
-
 	// This is for Citadel specific tweaks to job notices.
 	var/custom_spawn_text
 
@@ -98,6 +95,10 @@
 
 	/// Which kind of matchmaking this job allows, and with which departments. Associative list:  matchmaking_allowed[matchmaking datum typepath] -> list(job datum typepaths allowed)
 	var/list/matchmaking_allowed
+
+	/// Which kind of whitelist does this job use? for txt based whitelisting
+	/// the value should be something like "strings/names/cow.txt"
+	var/whitelist_path
 
 
 /datum/job/proc/after_spawn(mob/living/spawner, mob/client_holder, latejoin = FALSE)
@@ -161,7 +162,7 @@
 			H.set_species(/datum/species/human)
 			H.apply_pref_name("human", preference_source)
 	// F13 EDIT: GHOULS CANNOT BE LEGION, BROTHERHOOD, TRIBAL OR VAULT
-	if((title in GLOB.legion_positions) || (title in GLOB.vault_positions) || (title in GLOB.brotherhood_positions))
+	if((title in GLOB.legion_positions) || (title in GLOB.vault_positions) || (title in GLOB.brotherhood_positions) || (title in GLOB.tribal_positions))
 		if(H.dna.species.id == "ghoul")
 			H.set_species(/datum/species/human)
 			H.apply_pref_name("human", H.client)
@@ -209,7 +210,7 @@
 /datum/job/proc/announce_head(mob/living/carbon/human/H, channels) //tells the given channel that the given mob is the new department head. See communications.dm for valid channels.
 	if(H && GLOB.announcement_systems.len)
 		//timer because these should come after the captain announcement
-		SSticker.OnRoundstart(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(_addtimer), CALLBACK(pick(GLOB.announcement_systems), /obj/machinery/announcement_system/proc/announce, "NEWHEAD", H.real_name, H.job, channels), 1))
+		SSticker.OnRoundstart(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(_addtimer), CALLBACK(pick(GLOB.announcement_systems), TYPE_PROC_REF(/obj/machinery/announcement_system, announce), "NEWHEAD", H.real_name, H.job, channels), 1))
 
 //If the configuration option is set to require players to be logged as old enough to play certain jobs, then this proc checks that they are, otherwise it just returns 1
 /datum/job/proc/player_old_enough(client/C)
@@ -238,7 +239,7 @@
 	return TRUE
 
 /datum/job/proc/radio_help_message(mob/M)
-	to_chat(M, "<b>Prefix your message with .h to speak on your department's radio. To see other prefixes, look closely at your headset.</b>")
+	to_chat(M, "<b>Prefix your message with :h to speak on your department's radio. To see other prefixes, look closely at your headset.</b>")
 
 /datum/job/proc/standard_assign_skills(datum/mind/M)
 	if(!starting_modifiers)
@@ -258,6 +259,7 @@
 	back = /obj/item/storage/backpack
 	shoes = /obj/item/clothing/shoes/sneakers/black
 	box = /obj/item/storage/survivalkit
+	box_two = /obj/item/storage/survivalkit/medical
 
 	var/backpack = /obj/item/storage/backpack
 	var/satchel  = /obj/item/storage/backpack/satchel
@@ -271,7 +273,6 @@
 	var/gunsmith_two = FALSE //F13 gunsmith perk, ability to craft Tier 3 guns and ammo
 	var/gunsmith_three = FALSE //F13 gunsmith perk, ability to craft Tier 4 guns and ammo
 	var/gunsmith_four = FALSE //F13 gunsmith perk, ability to craft Tier 5 guns and ammo
-	var/vb_pilot = FALSE //F13 vb_pilot. Allows someone to fly the Vertibird.
 
 
 /datum/outfit/job/pre_equip(mob/living/carbon/human/H, visualsOnly = FALSE, client/preference_source)
@@ -304,43 +305,26 @@
 		holder = "[uniform]"
 	uniform = text2path(holder)
 
+	if(box_two && isrobotic(H))
+		box_two = /obj/item/storage/survivalkit/medical/synth
+
 	if(chemwhiz == TRUE)
 		ADD_TRAIT(H, TRAIT_CHEMWHIZ, "chemwhiz")
-		var/list/chem_types = list(/datum/crafting_recipe/jet, /datum/crafting_recipe/turbo, /datum/crafting_recipe/psycho, /datum/crafting_recipe/medx, /datum/crafting_recipe/buffout)
-		for(var/datum/crafting_recipe/R in chem_types)
-			H.mind.teach_crafting_recipe(R)
 
 	if(pa_wear == TRUE)
 		ADD_TRAIT(H, TRAIT_PA_WEAR, "pa_wear")
 
-	var/list/gun_types
 	if(gunsmith_one == TRUE)
 		ADD_TRAIT(H, TRAIT_GUNSMITH_ONE, "gunsmith_one")
-		gun_types = list(/datum/crafting_recipe/ninemil, /datum/crafting_recipe/huntingrifle, /datum/crafting_recipe/varmintrifle)
-		for(var/datum/crafting_recipe/R in gun_types)
-			H.mind.teach_crafting_recipe(R)
 
 	if(gunsmith_two == TRUE)
 		ADD_TRAIT(H, TRAIT_GUNSMITH_TWO, "gunsmith_two")
-		gun_types = list(/datum/crafting_recipe/n99, /datum/crafting_recipe/remingtonhuntingrifle, /datum/crafting_recipe/m1911, /datum/crafting_recipe/huntingshotgun)
-		for(var/datum/crafting_recipe/R in gun_types)
-			H.mind.teach_crafting_recipe(R)
 
 	if(gunsmith_three == TRUE)
 		ADD_TRAIT(H, TRAIT_GUNSMITH_THREE, "gunsmith_three")
-		gun_types = list(/datum/crafting_recipe/scope, /datum/crafting_recipe/suppressor, /datum/crafting_recipe/burst_improvement, /datum/crafting_recipe/recoil_decrease)
-		for(var/datum/crafting_recipe/R in gun_types)
-			H.mind.teach_crafting_recipe(R)
-
 
 	if(gunsmith_four == TRUE)
 		ADD_TRAIT(H, TRAIT_GUNSMITH_FOUR, "gunsmith_four")
-		gun_types = list(/datum/crafting_recipe/flux, /datum/crafting_recipe/lenses, /datum/crafting_recipe/conductors, /datum/crafting_recipe/receiver, /datum/crafting_recipe/assembly, /datum/crafting_recipe/alloys)
-		for(var/datum/crafting_recipe/R in gun_types)
-			H.mind.teach_crafting_recipe(R)
-
-	if(vb_pilot == TRUE)
-		ADD_TRAIT(H, TRAIT_PILOT, "vb_pilot")
 
 /datum/outfit/job/post_equip(mob/living/carbon/human/H, visualsOnly = FALSE, client/preference_source)
 	if(visualsOnly)
@@ -374,13 +358,10 @@
 			PDA.update_style(preference_source)
 
 	if(chemwhiz == TRUE)
-		ADD_TRAIT(H, TRAIT_CHEMWHIZ,  REF(src))
+		ADD_TRAIT(H, TRAIT_CHEMWHIZ, src)
 
 	if(pa_wear == TRUE)
-		ADD_TRAIT(H, TRAIT_PA_WEAR,  REF(src))
-
-	if(vb_pilot == TRUE)
-		ADD_TRAIT(H, TRAIT_PILOT, "vb_pilot")
+		ADD_TRAIT(H, TRAIT_PA_WEAR, src)
 
 	//Fortuna edit start. radio management
 	if(J.faction && ears)

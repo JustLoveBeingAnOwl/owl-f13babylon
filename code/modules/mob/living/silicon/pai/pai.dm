@@ -84,27 +84,15 @@
 
 /mob/living/silicon/pai/Destroy()
 	QDEL_NULL(internal_instrument)
-	QDEL_NULL(headset)
-	QDEL_NULL(cable)
-	QDEL_NULL(pda)
-	QDEL_NULL(access_card)
-	QDEL_NULL(signaler)
-	current = null
-	hackdoor = null
-	medicalActive1 = null
-	medicalActive2 = null
-	securityActive1 = null
-	securityActive2 = null
 	if (loc != card)
 		card.forceMove(drop_location())
 	card.pai = null
 	card.cut_overlays()
 	card.add_overlay("pai-off")
-	card = null
 	GLOB.pai_list -= src
 	return ..()
 
-/mob/living/silicon/pai/Initialize(mapload)
+/mob/living/silicon/pai/Initialize()
 	var/obj/item/paicard/P = loc
 	START_PROCESSING(SSfastprocess, src)
 	GLOB.pai_list += src
@@ -121,9 +109,10 @@
 
 	//PDA
 	pda = new(src)
-	pda.ownjob = "pAI Messenger"
-	pda.owner = "[src]"
-	pda.name = pda.owner + " (" + pda.ownjob + ")"
+	spawn(5)
+		pda.ownjob = "pAI Messenger"
+		pda.owner = text("[]", src)
+		pda.name = pda.owner + " (" + pda.ownjob + ")"
 
 	possible_chassis = typelist(NAMEOF(src, possible_chassis), list("cat" = TRUE, "mouse" = TRUE, "monkey" = TRUE, "corgi" = FALSE,
 									"fox" = FALSE, "repairbot" = TRUE, "rabbit" = TRUE, "borgi" = FALSE ,
@@ -204,7 +193,7 @@
 
 /mob/living/silicon/pai/canUseTopic(atom/movable/M, be_close=FALSE, no_dextery=FALSE, no_tk=FALSE)
 	if(be_close && !in_range(M, src))
-		to_chat(src, "<span class='warning'>You are too far away!</span>")
+		to_chat(src, span_warning("You are too far away!"))
 		return FALSE
 	return TRUE
 
@@ -220,6 +209,12 @@
 /datum/action/innate/pai
 	name = "PAI Action"
 	icon_icon = 'icons/mob/actions/actions_silicon.dmi'
+	var/mob/living/silicon/pai/P
+
+/datum/action/innate/pai/Trigger()
+	if(!ispAI(owner))
+		return 0
+	P = owner
 
 /datum/action/innate/pai/software
 	name = "Software Interface"
@@ -228,10 +223,7 @@
 
 /datum/action/innate/pai/software/Trigger()
 	..()
-	var/mob/living/silicon/pai/pAI = owner
-	if(!istype(pAI))
-		return
-	pAI.paiInterface()
+	P.paiInterface()
 
 /datum/action/innate/pai/shell
 	name = "Toggle Holoform"
@@ -240,13 +232,10 @@
 
 /datum/action/innate/pai/shell/Trigger()
 	..()
-	var/mob/living/silicon/pai/pAI = owner
-	if(!istype(pAI))
-		return
-	if(pAI.holoform)
-		pAI.fold_in(FALSE)
+	if(P.holoform)
+		P.fold_in(FALSE)
 	else
-		pAI.fold_out()
+		P.fold_out()
 
 /datum/action/innate/pai/chassis
 	name = "Holochassis Appearance Composite"
@@ -255,10 +244,7 @@
 
 /datum/action/innate/pai/chassis/Trigger()
 	..()
-	var/mob/living/silicon/pai/pAI = owner
-	if(!istype(pAI))
-		return
-	pAI.choose_chassis()
+	P.choose_chassis()
 
 /datum/action/innate/pai/rest
 	name = "Rest"
@@ -267,10 +253,7 @@
 
 /datum/action/innate/pai/rest/Trigger()
 	..()
-	var/mob/living/silicon/pai/pAI = owner
-	if(!istype(pAI))
-		return
-	pAI.lay_down()
+	P.lay_down()
 
 /datum/action/innate/pai/light
 	name = "Toggle Integrated Lights"
@@ -280,10 +263,7 @@
 
 /datum/action/innate/pai/light/Trigger()
 	..()
-	var/mob/living/silicon/pai/pAI = owner
-	if(!istype(pAI))
-		return
-	pAI.toggle_integrated_light()
+	P.toggle_integrated_light()
 
 /mob/living/silicon/pai/Process_Spacemove(movement_dir = 0, continuous_move)
 	. = ..()
@@ -302,7 +282,7 @@
 	if(cable)
 		if(get_dist(src, cable) > 1)
 			var/turf/T = get_turf(src.loc)
-			T.visible_message("<span class='warning'>[src.cable] rapidly retracts back into its spool.</span>", "<span class='italics'>You hear a click and the sound of wire spooling rapidly.</span>")
+			T.visible_message(span_warning("[src.cable] rapidly retracts back into its spool."), span_italic("You hear a click and the sound of wire spooling rapidly."))
 			qdel(src.cable)
 			cable = null
 
@@ -335,12 +315,12 @@
 	if(radio_short_timerid)
 		deltimer(radio_short_timerid)
 	radio_short = TRUE
-	to_chat(src, "<span class='danger'>Your radio shorts out!</span>")
+	to_chat(src, span_danger("Your radio shorts out!"))
 	radio_short_timerid = addtimer(CALLBACK(src, PROC_REF(unshort_radio)), radio_short_cooldown, flags = TIMER_STOPPABLE)
 
 /mob/living/silicon/pai/proc/unshort_radio()
 	radio_short = FALSE
-	to_chat(src, "<span class='danger'>You feel your radio is operational once more.</span>")
+	to_chat(src, span_danger("You feel your radio is operational once more."))
 	if(radio_short_timerid)
 		deltimer(radio_short_timerid)
 

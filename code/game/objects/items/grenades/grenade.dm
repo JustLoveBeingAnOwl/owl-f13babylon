@@ -13,6 +13,7 @@
 	slot_flags = ITEM_SLOT_BELT
 	resistance_flags = FLAMMABLE
 	max_integrity = 40
+	var/preprime_sound = 'sound/f13weapons/garand_ping.ogg'
 	var/active = 0
 	var/det_time = 50
 	var/display_timer = 1
@@ -27,6 +28,7 @@
 	var/ex_light = 0
 	///how big of a flame explosion radius on prime
 	var/ex_flame = 0
+	tastes = list("metal" = 1, "a bad time" = 2)
 
 	// dealing with creating a [/datum/component/pellet_cloud] on prime
 	/// if set, will spew out projectiles of this type
@@ -36,7 +38,7 @@
 	var/shrapnel_initialized
 
 /obj/item/grenade/suicide_act(mob/living/carbon/user)
-	user.visible_message("<span class='suicide'>[user] primes [src], then eats it! It looks like [user.p_theyre()] trying to commit suicide!</span>")
+	user.visible_message(span_suicide("[user] primes [src], then eats it! It looks like [user.p_theyre()] trying to commit suicide!"))
 	if(shrapnel_type && shrapnel_radius)
 		shrapnel_initialized = TRUE
 		AddComponent(/datum/component/pellet_cloud, projectile_type=shrapnel_type, magnitude=shrapnel_radius)
@@ -57,7 +59,7 @@
 	var/clumsy = HAS_TRAIT(user, TRAIT_CLUMSY)
 	if(clumsy)
 		if(clumsy_check == GRENADE_CLUMSY_FUMBLE && prob(50))
-			to_chat(user, "<span class='warning'>Huh? How does this thing work?</span>")
+			to_chat(user, span_warning("Huh? How does this thing work?"))
 			preprime(user, 5, FALSE)
 			return TRUE
 	else if(clumsy_check == GRENADE_NONCLUMSY_FUMBLE && !(user.mind && HAS_TRAIT(user.mind, TRAIT_CLOWN_MENTALITY)))
@@ -66,7 +68,7 @@
 		return TRUE
 
 	else if(sticky && prob(50)) // to add risk to sticky tape grenade cheese, no return cause we still prime as normal after
-		to_chat(user, "<span class='warning'>What the... [src] is stuck to your hand!</span>")
+		to_chat(user, span_warning("What the... [src] is stuck to your hand!"))
 		ADD_TRAIT(src, TRAIT_NODROP, STICKY_NODROP)
 
 /obj/item/grenade/examine(mob/user)
@@ -80,9 +82,9 @@
 
 /obj/item/grenade/attack_self(mob/user)
 	if(HAS_TRAIT(src, TRAIT_NODROP))
-		to_chat(user, "<span class='notice'>You try prying [src] off your hand...</span>")
+		to_chat(user, span_notice("You try prying [src] off your hand..."))
 		if(do_after(user, 70, target=src))
-			to_chat(user, "<span class='notice'>You manage to remove [src] from your hand.</span>")
+			to_chat(user, span_notice("You manage to remove [src] from your hand."))
 			REMOVE_TRAIT(src, TRAIT_NODROP, STICKY_NODROP)
 
 		return
@@ -97,6 +99,7 @@
 	message_admins(message)
 	log_game("[key_name(user)] has primed \a [src] for detonation at [AREACOORD(T)].")
 
+
 // for electric beep on activation
 /obj/item/grenade/proc/preprime(mob/user, delayoverride, msg = TRUE, volume = 60)
 	var/turf/T = get_turf(src)
@@ -107,12 +110,22 @@
 			var/mob/living/carbon/C = user
 			C.throw_mode_on()
 		if(msg)
-			to_chat(user, "<span class='warning'>You prime [src]! [DisplayTimeText(det_time)]!</span>")
-	playsound(src, 'sound/f13weapons/garand_ping.ogg', volume, 1)
+			to_chat(user, span_warning("You prime [src]! [DisplayTimeText(det_time)]!"))
+	playsound(src, preprime_sound, volume, 1)
 	active = TRUE
 	icon_state = initial(icon_state) + "_active"
 	item_state = initial(item_state) + "_active"
 	addtimer(CALLBACK(src, PROC_REF(prime)), isnull(delayoverride)? det_time : delayoverride)
+
+// Turn on the grenade if shot
+/obj/item/grenade/bullet_act(obj/item/projectile/P)
+	. = ..()
+	preprime(null, null, FALSE, 100)
+
+// Blow up the grenade if exploded
+/obj/item/grenade/ex_act(severity, target)
+	prime()
+	. = ..()
 
 // for ticking sound until detonation
 /obj/item/grenade/proc/primetimer(mob/user, delayoverride, msg = TRUE, volume = 60)
@@ -124,7 +137,8 @@
 			var/mob/living/carbon/C = user
 			C.throw_mode_on()
 		if(msg)
-			to_chat(user, "<span class='warning'>You prime [src]! [DisplayTimeText(det_time)]!</span>")
+			playsound(src, preprime_sound, 100, 1)
+			to_chat(user, span_warning("You prime [src]! [DisplayTimeText(det_time)]!"))
 	active = TRUE
 	icon_state = initial(icon_state) + "_active"
 	item_state = initial(item_state) + "_active"
@@ -140,8 +154,8 @@
 			var/mob/living/carbon/C = user
 			C.throw_mode_on()
 		if(msg)
-			to_chat(user, "<span class='warning'>You prime [src]! [DisplayTimeText(det_time)]!</span>")
-	playsound(src, 'sound/effects/fuse.ogg', volume, 1)
+			to_chat(user, span_warning("You prime [src]! [DisplayTimeText(det_time)]!"))
+	playsound(src, preprime_sound, volume, 1)
 	active = TRUE
 	icon_state = initial(icon_state) + "_active"
 	item_state = initial(item_state) + "_active"
@@ -173,16 +187,16 @@
 		switch(det_time)
 			if ("1")
 				det_time = 10
-				to_chat(user, "<span class='notice'>You set the [name] for 1 second detonation time.</span>")
+				to_chat(user, span_notice("You set the [name] for 1 second detonation time."))
 			if ("10")
 				det_time = 30
-				to_chat(user, "<span class='notice'>You set the [name] for 3 second detonation time.</span>")
+				to_chat(user, span_notice("You set the [name] for 3 second detonation time."))
 			if ("30")
 				det_time = 50
-				to_chat(user, "<span class='notice'>You set the [name] for 5 second detonation time.</span>")
+				to_chat(user, span_notice("You set the [name] for 5 second detonation time."))
 			if ("50")
 				det_time = 1
-				to_chat(user, "<span class='notice'>You set the [name] for instant detonation.</span>")
+				to_chat(user, span_notice("You set the [name] for instant detonation."))
 		add_fingerprint(user)
 	else
 		return ..()
@@ -194,8 +208,7 @@
 	if(attack_type & ATTACK_TYPE_PROJECTILE)
 		var/obj/item/projectile/P = object
 		if(damage && !P.nodamage && (P.damage_type != STAMINA) && prob(15))
-			owner.visible_message("<span class='danger'>[attack_text] hits [owner]'s [src], setting it off! What a shot!</span>", \
-								  "<span class='userdanger'>The [src] goes off in your face!</span>")
+			owner.visible_message(span_danger("[attack_text] hits [owner]'s [src], setting it off! What a shot!"))
 			prime()
 			return BLOCK_SUCCESS | BLOCK_PHYSICAL_EXTERNAL
 	return ..()

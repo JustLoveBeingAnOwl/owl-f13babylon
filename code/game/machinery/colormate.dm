@@ -52,7 +52,7 @@
 
 /obj/machinery/gear_painter/attackby(obj/item/I, mob/living/user)
 	if(inserted)
-		to_chat(user, "<span class='warning'>The machine is already loaded.</span>")
+		to_chat(user, span_warning("The machine is already loaded."))
 		return
 	if(default_deconstruction_screwdriver(user, "colormate_open", "colormate", I))
 		return
@@ -66,7 +66,7 @@
 		var/obj/item/clothing/head/mob_holder/H = I
 		var/mob/victim = H.held_mob
 		if(!user.transferItemToLoc(I, src))
-			to_chat(user, "<span class='warning'>[I] is stuck to your hand!</span>")
+			to_chat(user, span_warning("[I] is stuck to your hand!"))
 			return
 		if(!QDELETED(H))
 			H.release()
@@ -75,9 +75,9 @@
 
 	if(is_type_in_list(I, allowed_types) && is_operational())
 		if(!user.transferItemToLoc(I, src))
-			to_chat(user, "<span class='warning'>[I] is stuck to your hand!</span>")
+			to_chat(user, span_warning("[I] is stuck to your hand!"))
 			return
-		user.visible_message("<span class='notice'>[user] inserts [I] into [src]'s receptable.</span>")
+		user.visible_message(span_notice("[user] inserts [I] into [src]'s receptable."))
 
 		inserted = I
 		update_icon()
@@ -90,7 +90,8 @@
 	if(inserted)
 		return
 	if(user)
-		visible_message("<span class='warning'>[user] stuffs [victim] into [src]!</span>")
+		visible_message(span_warning("[user] stuffs [victim] into [src]!"))
+	RegisterSignal(victim, COMSIG_LIVING_RESIST, PROC_REF(free_me))
 	inserted = victim
 	inserted.forceMove(src)
 
@@ -106,7 +107,18 @@
 	. = ..()
 	drop_item()
 
-/obj/machinery/gear_painter/proc/drop_item()
+/obj/machinery/gear_painter/proc/free_me()
+	SIGNAL_HANDLER
+	if(!inserted)
+		return
+	to_chat(inserted, span_notice("You free yourself from [src]."))
+	inserted.forceMove(get_turf(src))
+	UnregisterSignal(inserted, COMSIG_LIVING_RESIST)
+	inserted = null
+	update_icon()
+	SStgui.update_uis(src)
+
+/obj/machinery/gear_painter/proc/drop_item(jailbreak)
 	if(!usr.can_reach(src))
 		return
 	if(!inserted)

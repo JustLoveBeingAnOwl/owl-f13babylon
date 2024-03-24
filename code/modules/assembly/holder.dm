@@ -14,6 +14,15 @@
 	var/obj/item/assembly/a_left = null
 	var/obj/item/assembly/a_right = null
 
+/obj/item/assembly_holder/Initialize()
+	. = ..()
+
+	var/static/list/loc_connections = list(
+		COMSIG_ATOM_ENTERED = PROC_REF(on_entered),
+	)
+	AddElement(/datum/element/connect_loc, loc_connections)
+
+
 /obj/item/assembly_holder/IsAssemblyHolder()
 	return TRUE
 
@@ -61,6 +70,13 @@
 	if(master)
 		master.update_icon()
 
+/obj/item/assembly_holder/proc/on_entered(atom/movable/AM as mob|obj)
+	SIGNAL_HANDLER
+	if(a_left)
+		INVOKE_ASYNC(a_left, PROC_REF(on_entered), AM)
+	if(a_right)
+		INVOKE_ASYNC(a_right, PROC_REF(on_entered), AM)
+
 /obj/item/assembly_holder/on_found(mob/finder)
 	if(a_left)
 		a_left.on_found(finder)
@@ -93,7 +109,7 @@
 /obj/item/assembly_holder/screwdriver_act(mob/user, obj/item/tool)
 	if(..())
 		return TRUE
-	to_chat(user, "<span class='notice'>You disassemble [src]!</span>")
+	to_chat(user, span_notice("You disassemble [src]!"))
 	if(a_left)
 		a_left.on_detach()
 		a_left = null
@@ -106,7 +122,7 @@
 /obj/item/assembly_holder/attack_self(mob/user)
 	src.add_fingerprint(user)
 	if(!a_left || !a_right)
-		to_chat(user, "<span class='danger'>Assembly part missing!</span>")
+		to_chat(user, span_danger("Assembly part missing!"))
 		return
 	if(istype(a_left,a_right.type))//If they are the same type it causes issues due to window code
 		switch(alert("Which side would you like to use?",,"Left","Right"))

@@ -13,13 +13,43 @@
 /obj/structure/timeddoor/sixtyminute
 	deletion_time = 60 MINUTES
 
-/obj/structure/timeddoor/onetwozerominutes
-	deletion_time = 120 MINUTES
-
-/obj/structure/timeddoor/Initialize(mapload)
+/obj/structure/timeddoor/Initialize()
 	. = ..()
 	addtimer(CALLBACK(src, PROC_REF(timeddeletedoor)), deletion_time)
 
 /obj/structure/timeddoor/proc/timeddeletedoor()
+	playsound(loc, 'sound/f13machines/doorhidden_open.ogg', 50, TRUE, -1)
+	qdel(src)
+
+/obj/structure/timeddoor/twohours
+	deletion_time = 120 MINUTES
+
+/obj/structure/timeddoor/Initialize()
+	. = ..()
+	addtimer(CALLBACK(src, PROC_REF(timeddeletedoor2)), deletion_time)
+
+/obj/structure/timeddoor/proc/timeddeletedoor2()
+	playsound(loc, 'sound/f13machines/doorhidden_open.ogg', 50, TRUE, -1)
+	qdel(src)
+
+/obj/structure/timeddoor/threehours
+	deletion_time = 180 MINUTES
+
+/obj/structure/timeddoor/Initialize()
+	. = ..()
+	addtimer(CALLBACK(src, PROC_REF(timeddeletedoor3)), deletion_time)
+
+/obj/structure/timeddoor/proc/timeddeletedoor3()
+	playsound(loc, 'sound/f13machines/doorhidden_open.ogg', 50, TRUE, -1)
+	qdel(src)
+
+/obj/structure/timeddoor/fourhours
+	deletion_time = 240 MINUTES
+
+/obj/structure/timeddoor/Initialize()
+	. = ..()
+	addtimer(CALLBACK(src, PROC_REF(timeddeletedoor4)), deletion_time)
+
+/obj/structure/timeddoor/proc/timeddeletedoor4()
 	playsound(loc, 'sound/f13machines/doorhidden_open.ogg', 50, TRUE, -1)
 	qdel(src)

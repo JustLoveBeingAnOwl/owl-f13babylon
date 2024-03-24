@@ -7,7 +7,7 @@
 	invisibility = INVISIBILITY_ABSTRACT // nope cant see this shit
 	anchored = TRUE
 
-/obj/effect/step_trigger/Initialize(mapload)
+/obj/effect/step_trigger/Initialize()
 	. = ..()
 
 	var/static/list/loc_connections = list(
@@ -18,14 +18,11 @@
 /obj/effect/step_trigger/proc/Trigger(atom/movable/A)
 	return 0
 
-/obj/effect/step_trigger/proc/on_entered(datum/source, H as mob|obj)
+/obj/effect/step_trigger/proc/on_entered(atom/loc, atom/movable/H)
 	SIGNAL_HANDLER
 	if(!H)
 		return
-	if(isobserver(H) && !affect_ghosts)
-		return
-	if(!ismob(H) && mobs_only)
-		return
+
 	INVOKE_ASYNC(src, PROC_REF(Trigger), H)
 
 
@@ -43,8 +40,11 @@
 	mobs_only = TRUE
 
 /obj/effect/step_trigger/message/Trigger(mob/M)
+	if(!ismob(M))
+		return
+
 	if(M.client)
-		to_chat(M, "<span class='info'>[message]</span>")
+		to_chat(M, span_info("[message]"))
 		if(once)
 			qdel(src)
 
@@ -72,7 +72,7 @@
 	if(isliving(AM))
 		var/mob/living/M = AM
 		if(immobilize)
-			ADD_TRAIT(M, TRAIT_MOBILITY_NOMOVE,  REF(src))
+			ADD_TRAIT(M, TRAIT_MOBILITY_NOMOVE, src)
 			M.update_mobility()
 
 	affecting.Add(AM)
@@ -110,7 +110,7 @@
 	if(isliving(AM))
 		var/mob/living/M = AM
 		if(immobilize)
-			REMOVE_TRAIT(M, TRAIT_MOBILITY_NOMOVE,  REF(src))
+			REMOVE_TRAIT(M, TRAIT_MOBILITY_NOMOVE, src)
 			M.update_mobility()
 
 /* Stops things thrown by a thrower, doesn't do anything */
@@ -123,12 +123,29 @@
 	var/teleport_x = 0	// teleportation coordinates (if one is null, then no teleport!)
 	var/teleport_y = 0
 	var/teleport_z = 0
+	var/checkPulled = 0
 
 /obj/effect/step_trigger/teleporter/Trigger(atom/movable/A)
-	if(teleport_x && teleport_y && teleport_z)
+	var/zLevel = 0
+	
+	var/list/z_list = SSmapping.z_list
+	for(var/datum/space_level/S in z_list)
+		if(S.name == teleport_z)
+			zLevel = S.name
+			continue
 
-		var/turf/T = locate(teleport_x, teleport_y, teleport_z)
+	if(teleport_x && teleport_y && zLevel)
+		var/turf/T = locate(teleport_x, teleport_y, zLevel)
 		A.forceMove(T)
+		if(checkPulled)
+			var/atom/movable/AM = A.pulling
+			if(AM)
+				T = get_step(A.loc,turn(A.dir, 180))
+				AM.can_be_z_moved = FALSE
+				AM.forceMove(T)
+				A.start_pulling(AM)
+				AM.can_be_z_moved = TRUE
+
 
 /* Random teleporter, teleports atoms to locations ranging from teleport_x - teleport_x_offset, etc */
 
@@ -207,3 +224,43 @@
 
 	if(happens_once)
 		qdel(src)
+
+/* Fenny requested this, a steptrigger to prompt a choice, and then alog their choice. Very weird, no fucking idea what he wants it for */
+
+// Rule of thumb. Don't modify these sacred texts. Do it in the map.
+// 
+// IF YOU NEED A YES/NO ANSWER, LEAVE CHOICES EMPTY!
+
+/obj/effect/step_trigger/player_choice_log
+	var/title = "Step has been triggered" // Title of the chat window.
+	var/question = "Step Trigger demands an answer" // The text to show to the player along with the choices 
+	var/list/choices = list() // List of choices to prompt the player with. If empty, give them a yes/no
+	var/adminLogSuffix = "PLAYER_CHOICE" // First word to appear on admin log, useful to highlight the specific step trigger in logs.
+
+	var/list/ckeyList = list() // Don't change this. This is to keep track of who's entered the room
+
+
+/obj/effect/step_trigger/player_choice_log/Trigger(atom/movable/A)
+	if(!ismob(A))
+		return
+	
+	var/mob/M = A
+	
+	if(M.client)
+		if(M.ckey in ckeyList)	return // Already answered and logged. No need for more input.
+		if(isobserver(M))	return // Ghosts get no no's
+		var/playerInput
+		if(choices.len)
+			playerInput = input(M, question, title) as null|anything in choices
+		else
+			playerInput = alert(M, question, title, "Yes", "No")
+		
+		var/msg = "STEP TRIGGER: [adminLogSuffix] - ERROR! [M] ([M.key]) somehow had not made a choice. (They closed the window? Assuming no then)"
+
+		if(playerInput)
+			msg = "STEP TRIGGER: [adminLogSuffix] - [M] ([M.key]) has selected \"[playerInput]\""
+		
+		message_admins(msg)
+		log_admin(msg)
+
+		ckeyList += M.ckey
