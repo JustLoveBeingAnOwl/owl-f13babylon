@@ -691,14 +691,6 @@ Records disabled until a use for them is found
 					if(!pref_species.use_skintones)
 						dat += "<b>Penis Color:</b></a><BR>"
 						dat += "<span style='border: 1px solid #161616; background-color: #[features["cock_color"]];'>&nbsp;&nbsp;&nbsp;</span> <a href='?_src_=prefs;preference=cock_color;task=input'>Change</a><br>"
-					var/tauric_shape = FALSE
-					if(features["cock_taur"])
-						var/datum/sprite_accessory/penis/P = GLOB.cock_shapes_list[features["cock_shape"]]
-						if(P.taur_icon && parent.can_have_part("taur"))
-							var/datum/sprite_accessory/taur/T = GLOB.taur_list[features["taur"]]
-							if(T.taur_mode & P.accepted_taurs)
-								tauric_shape = TRUE
-					dat += "<b>Penis Shape:</b> <a style='display:block;width:120px' href='?_src_=prefs;preference=cock_shape;task=input'>[features["cock_shape"]][tauric_shape ? " (Taur)" : ""]</a>"
 					dat += "<b>Penis Length:</b> <a style='display:block;width:120px' href='?_src_=prefs;preference=cock_length;task=input'>[features["cock_length"]] inch(es)</a>"
 					dat += "<b>Penis Visibility:</b><a style='display:block;width:100px' href='?_src_=prefs;preference=cock_visibility;task=input'>[features["cock_visibility"]]</a>"
 					dat += "<b>Has Testicles:</b><a style='display:block;width:50px' href='?_src_=prefs;preference=has_balls'>[features["has_balls"] == TRUE ? "Yes" : "No"]</a>"
@@ -2203,21 +2195,8 @@ Records disabled until a use for them is found
 						features["cock_length"] = clamp(round(new_length), min_D, max_D)
 
 				if("cock_shape")
-					var/new_shape
 					var/list/hockeys = list()
-					if(parent.can_have_part("taur"))
-						var/datum/sprite_accessory/taur/T = GLOB.taur_list[features["taur"]]
-						for(var/A in GLOB.cock_shapes_list)
-							var/datum/sprite_accessory/penis/P = GLOB.cock_shapes_list[A]
-							if(P.taur_icon && T.taur_mode & P.accepted_taurs)
-								LAZYSET(hockeys, "[A] (Taur)", A)
 					new_shape = input(user, "Penis shape:", "Character Preference") as null|anything in (GLOB.cock_shapes_list + hockeys)
-					if(new_shape)
-						features["cock_taur"] = FALSE
-						if(hockeys[new_shape])
-							new_shape = hockeys[new_shape]
-							features["cock_taur"] = TRUE
-						features["cock_shape"] = new_shape
 
 				if("cock_visibility")
 					var/n_vis = input(user, "Penis Visibility", "Character Preference") as null|anything in CONFIG_GET(keyed_list/safe_visibility_toggles)

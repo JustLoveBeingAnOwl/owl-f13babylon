@@ -256,19 +256,7 @@
 			construct_block(GLOB.mam_ears_list.Find(features["mam_ears"]), GLOB.mam_ears_list.len)
 		if(DNA_MUTANTMARKING_BLOCK)
 			construct_block(GLOB.mam_body_markings_list.Find(features["mam_body_markings"]), GLOB.mam_body_markings_list.len)
-		if(DNA_TAUR_BLOCK)
-			construct_block(GLOB.taur_list.Find(features["taur"]), GLOB.taur_list.len)
-			if(species.mutant_bodyparts["taur"] && ishuman(holder))
-				var/datum/sprite_accessory/taur/T = GLOB.taur_list[features["taur"]]
-				switch(T?.taur_mode)
-					if(STYLE_HOOF_TAURIC)
-						H.physiology.footstep_type = FOOTSTEP_MOB_SHOE
-					if(STYLE_PAW_TAURIC)
-						H.physiology.footstep_type = FOOTSTEP_MOB_CLAW
-					if(STYLE_SNEK_TAURIC)
-						H.physiology.footstep_type = FOOTSTEP_MOB_CRAWL
-					else
-						H.physiology.footstep_type = null
+			// hey jackasses if you ever try to re-add taurs i'm gonna find and kill you degens - hangyul
 
 //Please use add_mutation or activate_mutation instead
 /datum/dna/proc/force_give(datum/mutation/human/HM)
@@ -708,5 +696,3 @@
 			if(old_size < penalty_threshold && features["body_size"] >= penalty_threshold)
 				C.maxHealth  += 10 //give the maxhealth back
 				holder.remove_movespeed_modifier(/datum/movespeed_modifier/small_stride) //remove the slowdown
-
-
