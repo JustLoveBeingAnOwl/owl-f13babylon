@@ -2,21 +2,21 @@ macro "default"
 
 
 menu "menu"
-	elem
+	elem 
 		name = "&File"
 		command = ""
 		saved-params = "is-checked"
-	elem
+	elem 
 		name = "&Quick screenshot\tF2"
 		command = ".screenshot auto"
 		category = "&File"
 		saved-params = "is-checked"
-	elem
+	elem 
 		name = "&Save screenshot as...\tShift+F2"
 		command = ".screenshot"
 		category = "&File"
 		saved-params = "is-checked"
-	elem
+	elem 
 		name = ""
 		command = ""
 		category = "&File"
@@ -26,21 +26,21 @@ menu "menu"
 		command = ".reconnect"
 		category = "&File"
 		saved-params = "is-checked"
-	elem
+	elem 
 		name = "&Quit\tAlt-F4"
 		command = ".quit"
 		category = "&File"
 		saved-params = "is-checked"
-	elem
+	elem 
 		name = "&Help"
 		command = ""
 		saved-params = "is-checked"
-	elem
+	elem 
 		name = "&Admin Help\tF1"
 		command = "adminhelp"
 		category = "&Help"
 		saved-params = "is-checked"
-	elem
+	elem 
 		name = "&Hotkeys"
 		command = "hotkeys-help"
 		category = "&Help"
@@ -52,11 +52,11 @@ window "mainwindow"
 		type = MAIN
 		pos = 0,0
 		size = 640x440
-		anchor1 = -1,-1
-		anchor2 = -1,-1
+		anchor1 = none
+		anchor2 = none
 		is-default = true
 		saved-params = "pos;size;is-minimized;is-maximized"
-		title = "Temporary Name here"
+		title = "New Babylon"
 		icon = 'icons\\deathclawlogo.png'
 		macro = "default"
 		menu = "menu"
@@ -74,16 +74,16 @@ window "mainwindow"
 		type = BROWSER
 		pos = 0,0
 		size = 200x200
-		anchor1 = -1,-1
-		anchor2 = -1,-1
+		anchor1 = none
+		anchor2 = none
 		is-visible = false
 		saved-params = ""
 	elem "tooltip"
 		type = BROWSER
 		pos = 0,0
 		size = 999x999
-		anchor1 = -1,-1
-		anchor2 = -1,-1
+		anchor1 = none
+		anchor2 = none
 		is-visible = false
 		saved-params = ""
 
@@ -92,8 +92,8 @@ window "mapwindow"
 		type = MAIN
 		pos = 0,0
 		size = 1024x1024
-		anchor1 = -1,-1
-		anchor2 = -1,-1
+		anchor1 = none
+		anchor2 = none
 		saved-params = "pos;size;is-minimized;is-maximized"
 		is-pane = true
 	elem "map"
@@ -112,63 +112,37 @@ window "mapwindow"
 window "infowindow"
 	elem "infowindow"
 		type = MAIN
-		pos = 281,0
+		pos = 0,0
 		size = 640x480
-		anchor1 = -1,-1
-		anchor2 = -1,-1
-		background-color = none
+		anchor1 = none
+		anchor2 = none
 		saved-params = "pos;size;is-minimized;is-maximized"
 		is-pane = true
-		outer-size = 656x538
-		inner-size = 640x499
-	elem "setoocstatus"
-		type = BUTTON
-		pos = 10,5
-		size = 160x20
-		anchor1 = -1,-1
-		anchor2 = -1,-1
-		background-color = none
-		saved-params = "is-checked"
-		text = "Set OOC Status"
-		command = "setoocstatus"
 	elem "info"
 		type = CHILD
 		pos = 0,30
 		size = 640x445
 		anchor1 = 0,0
 		anchor2 = 100,100
-		background-color = none
 		saved-params = "splitter"
 		left = "statwindow"
 		right = "outputwindow"
 		is-vert = false
-	elem "tgwiki"
+	elem "wiki"
 		type = BUTTON
 		pos = 220,5
 		size = 100x20
 		anchor1 = 34,0
 		anchor2 = 50,0
-		background-color = none
 		saved-params = "is-checked"
-		text = "/tg/ Wiki"
-		command = "tgwiki"
-	elem "changelog"
-		type = BUTTON
-		pos = 320,5
-		size = 100x20
-		anchor1 = 50,0
-		anchor2 = 66,0
-		background-color = none
-		saved-params = "is-checked"
-		text = "Changelog"
-		command = "Changelog"
+		text = "Wiki"
+		command = "wiki"
 	elem "github"
 		type = BUTTON
 		pos = 420,5
 		size = 100x20
 		anchor1 = 66,0
 		anchor2 = 81,0
-		background-color = none
 		saved-params = "is-checked"
 		text = "Github"
 		command = "github"
@@ -178,7 +152,6 @@ window "infowindow"
 		size = 100x20
 		anchor1 = 81,0
 		anchor2 = 97,0
-		background-color = none
 		saved-params = "is-checked"
 		text = "Discord/Rules"
 		command = "discord"
@@ -186,10 +159,10 @@ window "infowindow"
 window "outputwindow"
 	elem "outputwindow"
 		type = MAIN
-		pos = 1423,709
+		pos = 0,0
 		size = 640x480
-		anchor1 = -1,-1
-		anchor2 = -1,-1
+		anchor1 = none
+		anchor2 = none
 		saved-params = "pos;size;is-minimized;is-maximized"
 		is-pane = true
 	elem "input"
@@ -198,7 +171,7 @@ window "outputwindow"
 		size = 595x20
 		anchor1 = 0,100
 		anchor2 = 100,100
-		font-style = "bold"
+		background-color = #d3b5b5
 		is-default = true
 		border = sunken
 		saved-params = "command"
@@ -207,7 +180,7 @@ window "outputwindow"
 		pos = 600,460
 		size = 37x20
 		anchor1 = 100,100
-		anchor2 = -1,-1
+		anchor2 = none
 		saved-params = "is-checked"
 		text = "Chat"
 		command = ".winset \"saybutton.is-checked=true ? input.command=\"!say \\\"\" : input.command=\""
@@ -236,9 +209,9 @@ window "popupwindow"
 	elem "popupwindow"
 		type = MAIN
 		pos = 281,0
-		size = 549x549
-		anchor1 = -1,-1
-		anchor2 = -1,-1
+		size = 120x120
+		anchor1 = none
+		anchor2 = none
 		is-visible = false
 		saved-params = "pos;size;is-minimized;is-maximized"
 		statusbar = false
@@ -248,34 +221,23 @@ window "preferences_window"
 	elem "preferences_window"
 		type = MAIN
 		pos = 281,0
-		size = 1280x1001
-		anchor1 = -1,-1
-		anchor2 = -1,-1
+		size = 1280x1000
+		anchor1 = none
+		anchor2 = none
 		is-visible = false
 		saved-params = "pos;size;is-minimized;is-maximized"
 		statusbar = false
-		image = 'icons\\CharacterCreator.png'
-	elem "Powerbutton"
-		type = BUTTON
-		pos = 922,891
-		size = 39x46
-		anchor1 = 72,89
-		anchor2 = 75,94
-		saved-params = "is-checked"
-		text = ""
-		image = 'icons\\Chargenbutton.png'
-		command = "Powerbutton"
 	elem "preferences_browser"
 		type = BROWSER
-		pos = 31,19
-		size = 830x837
+		pos = 0,0
+		size = 960x1000
 		anchor1 = 0,0
 		anchor2 = 75,100
 		saved-params = ""
 	elem "character_preview_map"
 		type = MAP
-		pos = 861,10
-		size = 393x847
+		pos = 960,0
+		size = 320x1000
 		anchor1 = 75,0
 		anchor2 = 100,100
 		right-click = true
@@ -284,18 +246,18 @@ window "preferences_window"
 window "statwindow"
 	elem "statwindow"
 		type = MAIN
-		pos = 281,0
-		size = 1121x827
-		anchor1 = -1,-1
-		anchor2 = -1,-1
+		pos = 372,0
+		size = 640x480
+		anchor1 = none
+		anchor2 = none
 		saved-params = "pos;size;is-minimized;is-maximized"
 		is-pane = true
-		image = 'icons\\pipscreen.png'
 	elem "statbrowser"
 		type = BROWSER
-		pos = 18,14
-		size = 1077x792
+		pos = 0,0
+		size = 640x480
 		anchor1 = 0,0
 		anchor2 = 100,100
 		is-visible = false
 		saved-params = ""
+
