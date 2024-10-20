@@ -1,5 +1,5 @@
-## Fallout: New Babylon
-Based and maintained from /tg/ & Citadel Station by way of Desert Rose, Fortuna, The Wasteland, and Sunset Wasteland.
+## Fallout: New Owllon
+Based and maintained from /tg/ & Citadel Station by way of Desert Rose, Fortuna, The Wasteland, and Sunset Wasteland, and now Fallout: New Babylon. This is built from all of their hard work.
 
 [![Percentage of issues still open](http://isitmaintained.com/badge/open/f13babylon/f13babylon.svg)](http://isitmaintained.com/project/f13babylon/f13babylon "Percentage of issues still open")
 [![Average time to resolve an issue](http://isitmaintained.com/badge/resolution/f13babylon/f13babylon.svg)](http://isitmaintained.com/project/f13babylon/f13babylon "Average time to resolve an issue")
