@@ -2196,7 +2196,6 @@ Records disabled until a use for them is found
 
 				if("cock_shape")
 					var/list/hockeys = list()
-					new_shape = input(user, "Penis shape:", "Character Preference") as null|anything in (GLOB.cock_shapes_list + hockeys)
 
 				if("cock_visibility")
 					var/n_vis = input(user, "Penis Visibility", "Character Preference") as null|anything in CONFIG_GET(keyed_list/safe_visibility_toggles)
