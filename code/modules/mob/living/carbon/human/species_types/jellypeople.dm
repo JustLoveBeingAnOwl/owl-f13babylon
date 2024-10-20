@@ -29,6 +29,7 @@
 	tail_type = "mam_tail"
 	wagging_type = "mam_waggingtail"
 	species_type = "jelly"
+	blacklisted = 1
 
 /datum/species/jelly/get_laugh_sound(mob/living/carbon/human/H)
 	//slime have cat ear. slime go nya.
