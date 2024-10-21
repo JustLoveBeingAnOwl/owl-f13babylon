@@ -32,20 +32,21 @@
 	. = ..()
 	if(strikes_to_lose_limb == 0)
 		if(prob(1))
-			victim.visible_message(span_danger("The infection on the remnants of [victim]'s [limb.name] shift and bubble nauseatingly!"), span_warning("You can feel the infection on the remnants of your [limb.name] coursing through your veins!"))
+			victim.visible_message("<span class='danger'>The infection on the remnants of [victim]'s [limb.name] shift and bubble nauseatingly!</span>", "<span class='warning'>You can feel the infection on the remnants of your [limb.name] coursing through your veins!</span>")
 		return
 
 	if(victim.reagents)
 		if(victim.reagents.has_reagent(/datum/reagent/medicine/spaceacillin))
 			sanitization += 7
-		if(victim.reagents.has_reagent(/datum/reagent/abraxo_cleaner/sterilizine/))
-			sanitization += 4
+		if(victim.reagents.has_reagent(/datum/reagent/abraxo_cleaner/sterilizine) || victim.reagents.has_reagent(/datum/reagent/consumable/ethanol))
+			sanitization += 5
+			flesh_healing -= 2 //Rubbing alcohol onto fresh burns will make it worse, but sterile
 		if(victim.reagents.has_reagent(/datum/reagent/medicine/mine_salve))
 			sanitization += 4
 			flesh_healing += 1
 
-//	if(limb.current_gauze)
-//		limb.seep_gauze(WOUND_BURN_SANITIZATION_RATE)
+	if(limb.current_gauze)
+		limb.seep_gauze(WOUND_BURN_SANITIZATION_RATE)
 
 	if(flesh_healing > 0)
 		var/bandage_factor = (limb.current_gauze ? limb.current_gauze.splint_factor : 1)
@@ -54,7 +55,7 @@
 
 	// here's the check to see if we're cleared up
 	if((flesh_damage <= 0) && (infestation <= 1))
-		to_chat(victim, span_green("The burns on your [limb.name] have cleared up!"))
+		to_chat(victim, "<span class='green'>The burns on your [limb.name] have cleared up!</span>")
 		qdel(src)
 		return
 
@@ -73,13 +74,13 @@
 			if(prob(30))
 				victim.adjustToxLoss(0.2)
 				if(prob(6))
-					to_chat(victim, span_warning("The blisters on your [limb.name] ooze a strange pus..."))
+					to_chat(victim, "<span class='warning'>The blisters on your [limb.name] ooze a strange pus...</span>")
 		if(WOUND_INFECTION_SEVERE to WOUND_INFECTION_CRITICAL)
 			if(!disabling && prob(2))
 				to_chat(victim, "<span class='warning'><b>Your [limb.name] completely locks up, as you struggle for control against the infection!</b></span>")
 				disabling = TRUE
 			else if(disabling && prob(8))
-				to_chat(victim, span_notice("You regain sensation in your [limb.name], but it's still in terrible shape!"))
+				to_chat(victim, "<span class='notice'>You regain sensation in your [limb.name], but it's still in terrible shape!</span>")
 				disabling = FALSE
 			else if(prob(20))
 				victim.adjustToxLoss(0.5)
@@ -88,10 +89,10 @@
 				to_chat(victim, "<span class='warning'><b>You suddenly lose all sensation of the festering infection in your [limb.name]!</b></span>")
 				disabling = TRUE
 			else if(disabling && prob(3))
-				to_chat(victim, span_notice("You can barely feel your [limb.name] again, and you have to strain to retain motor control!"))
+				to_chat(victim, "<span class='notice'>You can barely feel your [limb.name] again, and you have to strain to retain motor control!</span>")
 				disabling = FALSE
 			else if(prob(1))
-				to_chat(victim, span_warning("You contemplate life without your [limb.name]..."))
+				to_chat(victim, "<span class='warning'>You contemplate life without your [limb.name]...</span>")
 				victim.adjustToxLoss(0.75)
 			else if(prob(4))
 				victim.adjustToxLoss(1)
@@ -103,7 +104,7 @@
 			if(prob(infestation))
 				switch(strikes_to_lose_limb)
 					if(3 to INFINITY)
-						to_chat(victim, span_deadsay("The skin on your [limb.name] is literally dripping off, you feel awful!"))
+						to_chat(victim, "<span class='deadsay'>The skin on your [limb.name] is literally dripping off, you feel awful!</span>")
 					if(2)
 						to_chat(victim, "<span class='deadsay'><b>The infection in your [limb.name] is literally dripping off, you feel horrible!</b></span>")
 					if(1)
@@ -124,9 +125,9 @@
 		var/bandage_condition
 		switch(limb.current_gauze.absorption_capacity)
 			if(0 to 1.25)
-				bandage_condition = "nearly ruined "
+				bandage_condition = "pus-soaked "
 			if(1.25 to 2.75)
-				bandage_condition = "badly worn "
+				bandage_condition = "badly pus-stained "
 			if(2.75 to 4)
 				bandage_condition = "slightly pus-stained "
 			if(4 to INFINITY)
@@ -182,60 +183,52 @@
 
 /// if someone is using ointment on our burns
 /datum/wound/burn/proc/ointment(obj/item/stack/medical/ointment/I, mob/user)
-	user.visible_message(span_notice("[user] begins applying [I] to [victim]'s [limb.name]..."), span_notice("You begin applying [I] to [user == victim ? "your" : "[victim]'s"] [limb.name]..."))
+	user.visible_message("<span class='notice'>[user] begins applying [I] to [victim]'s [limb.name]...</span>", "<span class='notice'>You begin applying [I] to [user == victim ? "your" : "[victim]'s"] [limb.name]...</span>")
 	if(!do_after(user, (user == victim ? I.self_delay : I.other_delay), extra_checks = CALLBACK(src, PROC_REF(still_exists))))
 		return
 
 	limb.heal_damage(I.heal_brute, I.heal_burn)
-	user.visible_message(span_green("[user] applies [I] to [victim]."), span_green("You apply [I] to [user == victim ? "your" : "[victim]'s"] [limb.name]."))
+	user.visible_message("<span class='green'>[user] applies [I] to [victim].</span>", "<span class='green'>You apply [I] to [user == victim ? "your" : "[victim]'s"] [limb.name].</span>")
 	I.use(1)
 	sanitization += I.sanitization
 	flesh_healing += I.flesh_regeneration
 	infestation -= I.sanitization * 0.05
 
 	if((infestation <= 0 || sanitization >= infestation) && (flesh_damage <= 0 || flesh_healing > flesh_damage))
-		to_chat(user, span_notice("You've done all you can with [I], now you must wait for the flesh on [victim]'s [limb.name] to recover."))
+		to_chat(user, "<span class='notice'>You've done all you can with [I], now you must wait for the flesh on [victim]'s [limb.name] to recover.</span>")
 	else
 		try_treating(I, user)
 
 /// if someone is using mesh on our burns
-/datum/wound/burn/proc/mesh(obj/item/stack/medical/mesh/I, mob/user, just_treat)
-	user.visible_message(span_notice("[user] begins wrapping [victim]'s [limb.name] with [I]..."), span_notice("You begin wrapping [user == victim ? "your" : "[victim]'s"] [limb.name] with [I]..."))
+/datum/wound/burn/proc/mesh(obj/item/stack/medical/mesh/I, mob/user)
+	user.visible_message("<span class='notice'>[user] begins wrapping [victim]'s [limb.name] with [I]...</span>", "<span class='notice'>You begin wrapping [user == victim ? "your" : "[victim]'s"] [limb.name] with [I]...</span>")
 	if(!do_after(user, (user == victim ? I.self_delay : I.other_delay), target=victim, extra_checks = CALLBACK(src, PROC_REF(still_exists))))
 		return
 
-	user.visible_message(span_green("[user] applies [I] to [victim]."), span_green("You apply [I] to [user == victim ? "your" : "[victim]'s"] [limb.name]."))
 	limb.heal_damage(I.heal_brute, I.heal_burn)
+	user.visible_message("<span class='green'>[user] applies [I] to [victim].</span>", "<span class='green'>You apply [I] to [user == victim ? "your" : "[victim]'s"] [limb.name].</span>")
 	I.use(1)
 	sanitization += I.sanitization
 	flesh_healing += I.flesh_regeneration
 	infestation -= I.sanitization * 0.2
 
 	if(sanitization >= infestation && flesh_healing > flesh_damage)
-		to_chat(user, span_notice("You've done all you can with [I], now you must wait for the flesh on [victim]'s [limb.name] to recover."))
+		to_chat(user, "<span class='notice'>You've done all you can with [I], now you must wait for the flesh on [victim]'s [limb.name] to recover.</span>")
 	else
 		try_treating(I, user)
 
 /// Paramedic UV penlights
 /datum/wound/burn/proc/uv(obj/item/flashlight/pen/paramedic/I, mob/user)
 	if(!COOLDOWN_FINISHED(I, uv_cooldown))
-		to_chat(user, span_notice("[I] is still recharging!"))
+		to_chat(user, "<span class='notice'>[I] is still recharging!</span>")
 		return
 	if(infestation <= 0 || infestation < sanitization)
-		to_chat(user, span_notice("There's no infection to treat on [victim]'s [limb.name]!"))
+		to_chat(user, "<span class='notice'>There's no infection to treat on [victim]'s [limb.name]!</span>")
 		return
 
-	user.visible_message(span_notice("[user] flashes the burns on [victim]'s [limb] with [I]."), span_notice("You flash the burns on [user == victim ? "your" : "[victim]'s"] [limb.name] with [I]."), vision_distance=COMBAT_MESSAGE_RANGE)
+	user.visible_message("<span class='notice'>[user] flashes the burns on [victim]'s [limb] with [I].</span>", "<span class='notice'>You flash the burns on [user == victim ? "your" : "[victim]'s"] [limb.name] with [I].</span>", vision_distance=COMBAT_MESSAGE_RANGE)
 	sanitization += I.uv_power
 	COOLDOWN_START(I, uv_cooldown, I.uv_cooldown_length)
-
-/// Generic burn wound treatment from whatever'll allow it
-/// No messages, damage healing, or thing usage, they'll be handled on the item doing the healing
-/datum/wound/burn/proc/treat_burn(obj/item/stack/medical/I, mob/user)
-	sanitization += I.sanitization
-	flesh_healing += I.flesh_regeneration
-	infestation -= I.sanitization * 0.05
-
 
 /datum/wound/burn/treat(obj/item/I, mob/user)
 	if(istype(I, /obj/item/stack/medical/ointment))
@@ -251,7 +244,7 @@
 	if(flesh_healing > 0)
 		flesh_damage = max(0, flesh_damage - 0.2)
 	if((flesh_damage <= 0) && (infestation <= 1))
-		to_chat(victim, span_green("The burns on your [limb.name] have cleared up!"))
+		to_chat(victim, "<span class='green'>The burns on your [limb.name] have cleared up!</span>")
 		qdel(src)
 		return
 	if(sanitization > 0)
@@ -268,7 +261,7 @@
 	examine_desc = "is badly burned and breaking out in blisters"
 	occur_text = "breaks out with violent red burns"
 	severity = WOUND_SEVERITY_MODERATE
-	damage_mulitplier_penalty = 1.05
+	damage_mulitplier_penalty = 1.1
 	threshold_minimum = 50
 	threshold_penalty = 30 // burns cause significant decrease in limb integrity compared to other wounds
 	status_effect_type = /datum/status_effect/wound/burn/moderate
@@ -282,7 +275,7 @@
 	examine_desc = "appears seriously charred, with aggressive red splotches"
 	occur_text = "chars rapidly, exposing ruined tissue and spreading angry red burns"
 	severity = WOUND_SEVERITY_SEVERE
-	damage_mulitplier_penalty = 1.1
+	damage_mulitplier_penalty = 1.2
 	threshold_minimum = 90
 	threshold_penalty = 40
 	status_effect_type = /datum/status_effect/wound/burn/severe
@@ -298,7 +291,7 @@
 	examine_desc = "is a ruined mess of blanched bone, melted fat, and charred tissue"
 	occur_text = "vaporizes as flesh, bone, and fat melt together in a horrifying mess"
 	severity = WOUND_SEVERITY_CRITICAL
-	damage_mulitplier_penalty = 1.15
+	damage_mulitplier_penalty = 1.3
 	sound_effect = 'sound/effects/wounds/sizzle2.ogg'
 	threshold_minimum = 150
 	threshold_penalty = 80

@@ -32,6 +32,7 @@
 	var/weaponscheck = FALSE //If true, arrest people for weapons if they lack access
 	var/check_records = TRUE //Does it check security records?
 	var/arrest_type = FALSE //If true, don't handcuff
+	var/ranged = FALSE //used for EDs
 
 	var/obj/item/clothing/head/bot_accessory
 	var/datum/beepsky_fashion/stored_fashion
@@ -58,7 +59,7 @@
 	name = "Officer Pipsqueak"
 	desc = "It's Officer Beep O'sky's smaller, just-as aggressive cousin, Pipsqueak."
 
-/mob/living/simple_animal/bot/secbot/beepsky/jr/Initialize()
+/mob/living/simple_animal/bot/secbot/beepsky/jr/Initialize(mapload)
 	. = ..()
 	resize = 0.8
 	update_transform()
@@ -174,7 +175,7 @@
 	desc = "It's Officer Pingsky! Delegated to satellite guard duty for harbouring anti-human sentiment."
 	radio_channel = RADIO_CHANNEL_AI_PRIVATE
 
-/mob/living/simple_animal/bot/secbot/Initialize()
+/mob/living/simple_animal/bot/secbot/Initialize(mapload)
 	. = ..()
 	update_icon()
 	var/datum/job/detective/J = new/datum/job/detective
@@ -184,6 +185,12 @@
 	//SECHUD
 	var/datum/atom_hud/secsensor = GLOB.huds[DATA_HUD_SECURITY_ADVANCED]
 	secsensor.add_hud_to(src)
+
+/mob/living/simple_animal/bot/secbot/Destroy()
+	//SECHUD
+	var/datum/atom_hud/secsensor = GLOB.huds[DATA_HUD_SECURITY_ADVANCED]
+	secsensor.remove_hud_from(src)
+	return ..()
 
 /mob/living/simple_animal/bot/secbot/update_icon()
 	if(mode == BOT_HUNT)
@@ -204,7 +211,6 @@
 	last_found = world.time
 
 /mob/living/simple_animal/bot/secbot/set_custom_texts()
-
 	text_hack = "You overload [name]'s target identification system."
 	text_dehack = "You reboot [name] and restore the target identification."
 	text_dehack_fail = "[name] refuses to accept your authority!"
@@ -272,13 +278,15 @@ Auto Patrol: []"},
 /mob/living/simple_animal/bot/secbot/proc/judgement_criteria()
 	var/final = FALSE
 	if(idcheck)
-		final = final|JUDGE_IDCHECK
+		final |= JUDGE_IDCHECK
 	if(check_records)
-		final = final|JUDGE_RECORDCHECK
+		final |= JUDGE_RECORDCHECK
 	if(weaponscheck)
-		final = final|JUDGE_WEAPONCHECK
+		final |= JUDGE_WEAPONCHECK
 	if(emagged == 2)
-		final = final|JUDGE_EMAGGED
+		final |= JUDGE_EMAGGED
+	if(ranged)
+		final |= JUDGE_IGNOREMONKEYS
 	return final
 
 /mob/living/simple_animal/bot/secbot/proc/special_retaliate_after_attack(mob/user) //allows special actions to take place after being attacked.
@@ -291,7 +299,7 @@ Auto Patrol: []"},
 			return
 	if(H.a_intent == INTENT_HELP && bot_accessory)
 
-		to_chat(H, span_warning("You knock [bot_accessory] off of [src]'s head!"))
+		to_chat(H, "<span class='warning'>You knock [bot_accessory] off of [src]'s head!</span>")
 		reset_fashion()
 		return
 
@@ -311,19 +319,19 @@ Auto Patrol: []"},
 
 /mob/living/simple_animal/bot/secbot/proc/attempt_place_on_head(mob/user, obj/item/clothing/head/H)
 	if(user && !user.temporarilyRemoveItemFromInventory(H))
-		to_chat(user, span_warning("\The [H] is stuck to your hand, you cannot put it on [src]'s head!"))
+		to_chat(user, "<span class='warning'>\The [H] is stuck to your hand, you cannot put it on [src]'s head!</span>")
 		return
 	if(bot_accessory)
 		to_chat(user, span_warning("[src] already has an accessory, and the laws of physics disallow \him from wearing a second!"))
 		return
 
 	if(H.beepsky_fashion)
-		to_chat(user, span_warning("You set [H] on [src]."))
+		to_chat(user, "<span class='warning'>You set [H] on [src].</span>")
 		bot_accessory = H
 		H.forceMove(src)
 		apply_fashion(H.beepsky_fashion)
 	else
-		to_chat(user, span_warning("You set [H] on [src]'s head, but it falls off!"))
+		to_chat(user, "<span class='warning'>You set [H] on [src]'s head, but it falls off!</span>")
 		H.forceMove(drop_location())
 
 /mob/living/simple_animal/bot/secbot/regenerate_icons()
@@ -347,9 +355,9 @@ Auto Patrol: []"},
 	. = ..()
 	if(emagged == 2)
 		if(user)
-			to_chat(user, span_danger("You short out [src]'s target assessment circuits."))
+			to_chat(user, "<span class='danger'>You short out [src]'s target assessment circuits.</span>")
 			oldtarget_name = user.name
-		audible_message(span_danger("[src] buzzes oddly!"))
+		audible_message("<span class='danger'>[src] buzzes oddly!</span>")
 		declare_arrests = FALSE
 		update_icon()
 
@@ -386,8 +394,8 @@ Auto Patrol: []"},
 /mob/living/simple_animal/bot/secbot/proc/cuff(mob/living/carbon/C)
 	mode = BOT_ARREST
 	playsound(src, 'sound/weapons/cablecuff.ogg', 30, TRUE, -2)
-	C.visible_message(span_danger("[process_emote("CAPTURE_ONE", C)]"),\
-						span_userdanger("[process_emote("CAPTURE_TWO", C)]"))
+	C.visible_message("<span class='danger'>[process_emote("CAPTURE_ONE", C)]</span>",\
+						"<span class='userdanger'>[process_emote("CAPTURE_TWO", C)]</span>")
 	if(do_after(src, 60, FALSE, C))
 		attempt_handcuff(C)
 
@@ -402,7 +410,7 @@ Auto Patrol: []"},
 
 /mob/living/simple_animal/bot/secbot/proc/stun_attack(mob/living/carbon/C)
 	var/judgement_criteria = judgement_criteria()
-	icon_state = "secbot-c"
+	icon_state = "[initial(icon_state)]-c"
 	addtimer(CALLBACK(src, TYPE_PROC_REF(/atom, update_icon)), 2)
 	var/threat = 5
 	if(ishuman(C))
@@ -426,8 +434,8 @@ Auto Patrol: []"},
 	if(declare_arrests)
 		var/area/location = get_area(src)
 		speak(process_emote("ARREST", C, threat, arrest_type, location), radio_channel)
-	C.visible_message(span_danger("[process_emote("ATTACK_ONE", C)]"),\
-							span_userdanger("[process_emote("ATTACK_TWO", C)]"))
+	C.visible_message("<span class='danger'>[process_emote("ATTACK_ONE", C)]</span>",\
+							"<span class='userdanger'>[process_emote("ATTACK_TWO", C)]</span>")
 
 /mob/living/simple_animal/bot/secbot/handle_automated_action()
 	if(!..())
@@ -550,7 +558,10 @@ Auto Patrol: []"},
 			target = C
 			oldtarget_name = C.name
 			speak(process_emote("INFRACTION", target, threatlevel))
-			playsound(loc, pick('sound/voice/beepsky/criminal.ogg', 'sound/voice/beepsky/justice.ogg', 'sound/voice/beepsky/freeze.ogg'), 50, FALSE)
+			if(ranged)
+				playsound(src, pick('sound/voice/ed209_20sec.ogg', 'sound/voice/edplaceholder.ogg'), 50, FALSE)
+			else
+				playsound(src, pick('sound/voice/beepsky/criminal.ogg', 'sound/voice/beepsky/justice.ogg', 'sound/voice/beepsky/freeze.ogg'), 50, FALSE)
 			visible_message(process_emote("TAUNT", target, threatlevel))
 			mode = BOT_HUNT
 			INVOKE_ASYNC(src, PROC_REF(handle_automated_action))
@@ -566,18 +577,36 @@ Auto Patrol: []"},
 /mob/living/simple_animal/bot/secbot/explode()
 
 	walk_to(src,0)
-	visible_message(span_boldannounce("[process_emote("DEATH")]"))
+	visible_message("<span class='boldannounce'>[process_emote("DEATH")]</span>")
 	var/atom/Tsec = drop_location()
+	if(ranged)
+		var/obj/item/bot_assembly/ed209/Sa = new (Tsec)
+		Sa.build_step = 1
+		Sa.add_overlay("hs_hole")
+		Sa.created_name = name
+		new /obj/item/assembly/prox_sensor(Tsec)
+		var/obj/item/gun/energy/disabler/G = new (Tsec)
+		G.cell.charge = 0
+		G.update_icon()
+		if(prob(50))
+			new /obj/item/bodypart/l_leg/robot(Tsec)
+			if(prob(25))
+				new /obj/item/bodypart/r_leg/robot(Tsec)
+		if(prob(25))//50% chance for a helmet OR vest
+			if(prob(50))
+				new /obj/item/clothing/head/helmet(Tsec)
+			else
+				new /obj/item/clothing/suit/armor/vest(Tsec)
+	else
+		var/obj/item/bot_assembly/secbot/Sa = new (Tsec)
+		Sa.build_step = ASSEMBLY_SECOND_STEP
+		Sa.add_overlay("hs_hole")
+		Sa.created_name = name
+		new /obj/item/assembly/prox_sensor(Tsec)
+		drop_part(baton_type, Tsec)
 
-	var/obj/item/bot_assembly/secbot/Sa = new (Tsec)
-	Sa.build_step = ASSEMBLY_SECOND_STEP
-	Sa.add_overlay("hs_hole")
-	Sa.created_name = name
-	new /obj/item/assembly/prox_sensor(Tsec)
-	drop_part(baton_type, Tsec)
-
-	if(prob(50))
-		drop_part(robot_arm, Tsec)
+		if(prob(50))
+			drop_part(robot_arm, Tsec)
 
 	do_sparks(3, TRUE, src)
 

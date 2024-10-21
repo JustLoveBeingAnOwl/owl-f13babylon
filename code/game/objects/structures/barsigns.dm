@@ -6,12 +6,12 @@
 	req_access = list(ACCESS_BAR)
 	max_integrity = 500
 	integrity_failure = 0.5
-	armor = ARMOR_VALUE_LIGHT
+	armor = list("melee" = 20, "bullet" = 20, "laser" = 20, "energy" = 100, "bomb" = 0, "bio" = 0, "rad" = 0, "fire" = 50, "acid" = 50)
 	buildable_sign = 0
 	var/list/barsigns=list()
 	var/panel_open = FALSE
 
-/obj/structure/sign/barsign/Initialize()
+/obj/structure/sign/barsign/Initialize(mapload)
 	. = ..()
 
 //filling the barsigns list
@@ -54,7 +54,7 @@
 
 /obj/structure/sign/barsign/on_attack_hand(mob/user, act_intent = user.a_intent, unarmed_attack_flags)
 	if(!allowed(user))
-		to_chat(user, span_info("Access denied."))
+		to_chat(user, "<span class='info'>Access denied.</span>")
 		return
 	if (broken)
 		to_chat(user, "<span class ='danger'>The controls seem unresponsive.</span>")
@@ -64,14 +64,14 @@
 /obj/structure/sign/barsign/attackby(obj/item/I, mob/user)
 	if(istype(I, /obj/item/screwdriver))
 		if(!allowed(user))
-			to_chat(user, span_info("Access denied."))
+			to_chat(user, "<span class='info'>Access denied.</span>")
 			return
 		if(!panel_open)
-			to_chat(user, span_notice("You open the maintenance panel."))
+			to_chat(user, "<span class='notice'>You open the maintenance panel.</span>")
 			set_sign(new /datum/barsign/hiddensigns/signoff)
 			panel_open = TRUE
 		else
-			to_chat(user, span_notice("You close the maintenance panel."))
+			to_chat(user, "<span class='notice'>You close the maintenance panel.</span>")
 			if(!broken && !(obj_flags & EMAGGED))
 				set_sign(pick(barsigns))
 			else if(obj_flags & EMAGGED)
@@ -82,17 +82,17 @@
 
 	else if(istype(I, /obj/item/stack/cable_coil) && panel_open)
 		if(obj_flags & EMAGGED) //Emagged, not broken by EMP
-			to_chat(user, span_warning("Sign has been damaged beyond repair!"))
+			to_chat(user, "<span class='warning'>Sign has been damaged beyond repair!</span>")
 			return
 		else if(!broken)
-			to_chat(user, span_warning("This sign is functioning properly!"))
+			to_chat(user, "<span class='warning'>This sign is functioning properly!</span>")
 			return
 
 		if(I.use_tool(src, user, 0, 2))
-			to_chat(user, span_notice("You replace the burnt wiring."))
+			to_chat(user, "<span class='notice'>You replace the burnt wiring.</span>")
 			broken = FALSE
 		else
-			to_chat(user, span_warning("You need at least two lengths of cable!"))
+			to_chat(user, "<span class='warning'>You need at least two lengths of cable!</span>")
 	else
 		return ..()
 
@@ -107,10 +107,10 @@
 /obj/structure/sign/barsign/emag_act(mob/user)
 	. = ..()
 	if(broken || (obj_flags & EMAGGED))
-		to_chat(user, span_warning("Nothing interesting happens!"))
+		to_chat(user, "<span class='warning'>Nothing interesting happens!</span>")
 		return
 	obj_flags |= EMAGGED
-	to_chat(user, span_notice("You emag the barsign. Takeover in progress..."))
+	to_chat(user, "<span class='notice'>You emag the barsign. Takeover in progress...</span>")
 	addtimer(CALLBACK(src, PROC_REF(syndie_bar_good)), 10 SECONDS)
 	return TRUE
 

@@ -24,7 +24,7 @@
 		if(!O.anchored || ismecha(O))	//Mechs need their launch platforms.
 			O_limit++
 			if(O_limit >= 20)
-				audible_message(span_notice("[src] lets out a screech, it doesn't seem to be able to handle the load."))
+				audible_message("<span class='notice'>[src] lets out a screech, it doesn't seem to be able to handle the load.</span>")
 				break
 			use_power(500)
 			O.throw_at(target, drive_range * power, power)
@@ -43,7 +43,7 @@
 	name = "pressure plated mass driver"
 	var/drive_delay = 10
 
-/obj/machinery/mass_driver/pressure_plate/Initialize()
+/obj/machinery/mass_driver/pressure_plate/Initialize(mapload)
 	. = ..()
 
 	var/static/list/loc_connections = list(
@@ -56,5 +56,5 @@
 
 	if(isliving(AM))
 		var/mob/living/L = AM
-		to_chat(L, span_warning("You feel something click beneath you!"))
+		to_chat(L, "<span class='warning'>You feel something click beneath you!</span>")
 	addtimer(CALLBACK(src, PROC_REF(drive)), drive_delay)

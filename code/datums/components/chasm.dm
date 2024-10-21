@@ -24,7 +24,7 @@
 		))
 
 /datum/component/chasm/Initialize(turf/target)
-	RegisterSignal(parent, list(COMSIG_MOVABLE_CROSSED, COMSIG_ATOM_ENTERED), PROC_REF(Entered))
+	RegisterSignal(parent, COMSIG_ATOM_ENTERED, PROC_REF(Entered))
 	target_turf = target
 	START_PROCESSING(SSobj, src) // process on create, in case stuff is still there
 
@@ -87,23 +87,18 @@
 
 	if(T)
 		// send to the turf below
-		AM.visible_message(span_boldwarning("[AM] falls into [parent]!"), span_userdanger("[fall_message]"))
-		T.visible_message(span_boldwarning("[AM] falls from above!"))
+		AM.visible_message("<span class='boldwarning'>[AM] falls into [parent]!</span>", "<span class='userdanger'>[fall_message]</span>")
+		T.visible_message("<span class='boldwarning'>[AM] falls from above!</span>")
 		AM.forceMove(T)
 		if(isliving(AM))
 			var/mob/living/L = AM
 			L.DefaultCombatKnockdown(100)
-			L.adjustBruteLoss(40)
+			L.adjustBruteLoss(30)
 		falling_atoms -= AM
 
 	else
-		var/atom/parent = src.parent
-		falling_atoms -= AM
-		parent.visible_message(span_phobia("[parent] bugged the fuck out and tried to delete [AM]! Quick, someone call 1-800-IMC-ODER!"))
-		AM.throw_at(get_edge_target_turf(parent,pick(GLOB.alldirs)),rand(1, 10),rand(1, 10))
-		message_admins("[ADMIN_VERBOSEJMP(parent)] nearly tried to qdel vore [ADMIN_LOOKUPFLW(AM)]! Good thing Lagg disabled that!")
-		// send to oblivion -- yeah it doesnt work
-		/*AM.visible_message(span_boldwarning("[AM] falls into [parent]!"), span_userdanger("[oblivion_message]"))
+		// send to oblivion
+		AM.visible_message("<span class='boldwarning'>[AM] falls into [parent]!</span>", "<span class='userdanger'>[oblivion_message]</span>")
 		if (isliving(AM))
 			var/mob/living/L = AM
 			L.mob_transforming = TRUE
@@ -132,8 +127,8 @@
 		qdel(AM)
 		if(AM && !QDELETED(AM))	//It's indestructible
 			var/atom/parent = src.parent
-			parent.visible_message(span_boldwarning("[parent] spits out [AM]!"))
+			parent.visible_message("<span class='boldwarning'>[parent] spits out [AM]!</span>")
 			AM.alpha = oldalpha
 			AM.color = oldcolor
 			AM.transform = oldtransform
-			AM.throw_at(get_edge_target_turf(parent,pick(GLOB.alldirs)),rand(1, 10),rand(1, 10)) */
+			AM.throw_at(get_edge_target_turf(parent,pick(GLOB.alldirs)),rand(1, 10),rand(1, 10))

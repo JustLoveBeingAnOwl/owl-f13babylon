@@ -18,7 +18,6 @@
 	if (profilePicture)
 		. += "<a href='?src=[REF(src)];enlargeImage=1'><img src='[DiscordLink(profilePicture)]' width='125' height='auto' max-height='300'></a>"
 
-
 	var/vampDesc = ReturnVampExamine(user) // Vamps recognize the names of other vamps.
 	var/vassDesc = ReturnVassalExamine(user) // Vassals recognize each other's marks.
 	if (vampDesc != "") // If we don't do it this way, we add a blank space to the string...something to do with this -->  . += ""
@@ -68,14 +67,14 @@
 	else if(length(blood_DNA))
 		var/hand_number = get_num_arms(FALSE)
 		if(hand_number)
-			. += span_warning("[t_He] [t_has] [hand_number > 1 ? "" : "a"] blood-stained hand[hand_number > 1 ? "s" : ""]!")
+			. += "<span class='warning'>[t_He] [t_has] [hand_number > 1 ? "" : "a"] blood-stained hand[hand_number > 1 ? "s" : ""]!</span>"
 
 	//handcuffed?
 	if(handcuffed)
 		if(istype(handcuffed, /obj/item/restraints/handcuffs/cable))
-			. += span_warning("[t_He] [t_is] [icon2html(handcuffed, user)] restrained with cable!")
+			. += "<span class='warning'>[t_He] [t_is] [icon2html(handcuffed, user)] restrained with cable!</span>"
 		else
-			. += span_warning("[t_He] [t_is] [icon2html(handcuffed, user)] handcuffed!")
+			. += "<span class='warning'>[t_He] [t_is] [icon2html(handcuffed, user)] handcuffed!</span>"
 
 	//belt
 	if(belt)
@@ -118,31 +117,36 @@
 	if(!isnull(effects_exam))
 		. += effects_exam
 
+	//CIT CHANGES START HERE - adds genital details to examine text
+	if(LAZYLEN(internal_organs) && CHECK_BITFIELD(user.client?.prefs.cit_toggles, GENITAL_EXAMINE))
+		for(var/obj/item/organ/genital/dicc in internal_organs)
+			if(istype(dicc) && dicc.is_exposed())
+				. += "[dicc.desc]"
+	//END OF CIT CHANGES
 
 	//Jitters
 	switch(jitteriness)
 		if(300 to INFINITY)
 			. += "<span class='warning'><B>[t_He] [t_is] convulsing violently!</B></span>"
 		if(200 to 300)
-			. += span_warning("[t_He] [t_is] extremely jittery.")
+			. += "<span class='warning'>[t_He] [t_is] extremely jittery.</span>"
 		if(100 to 200)
-			. += span_warning("[t_He] [t_is] twitching ever so slightly.")
+			. += "<span class='warning'>[t_He] [t_is] twitching ever so slightly.</span>"
 
 	var/appears_dead = 0
 	if(stat == DEAD || (HAS_TRAIT(src, TRAIT_FAKEDEATH)))
 		appears_dead = 1
 		if(suiciding)
-			. += span_warning("[t_He] appear[p_s()] to have committed suicide... there is no hope of recovery.")
+			. += "<span class='warning'>[t_He] appear[p_s()] to have committed suicide... there is no hope of recovery.</span>"
 		if(hellbound)
-			. += span_warning("[t_His] soul seems to have been ripped out of [t_his] body.  Revival is impossible.")
-		var/mob/dead/observer/ghost = get_ghost(TRUE, TRUE)
-		if(key || !getorgan(/obj/item/organ/brain) || ghost?.can_reenter_corpse)
-			. += span_deadsay("[t_He] [t_is] limp and unresponsive; there are no signs of life...")
+			. += "<span class='warning'>[t_His] soul seems to have been ripped out of [t_his] body.  Revival is impossible.</span>"
+		if(getorgan(/obj/item/organ/brain) && !key && !get_ghost(FALSE, TRUE))
+			. += "<span class='deadsay'>[t_He] [t_is] limp and unresponsive; there are no signs of life and resuscitation is not possible...</span>"
 		else
-			. += span_deadsay("[t_He] [t_is] limp and unresponsive; there are no signs of life and [t_his] soul has departed...")
+			. += "<span class='deadsay'>[t_He] [t_is] limp and unresponsive; there are no signs of life, however resuscitation may be possible...</span>"
 
 	if(get_bodypart(BODY_ZONE_HEAD) && !getorgan(/obj/item/organ/brain))
-		. += span_deadsay("It appears that [t_his] brain is missing...")
+		. += "<span class='deadsay'>It appears that [t_his] brain is missing...</span>"
 
 	var/temp = getBruteLoss() //no need to calculate each of these twice
 
@@ -163,60 +167,6 @@
 		for(var/i in BP.wounds)
 			var/datum/wound/iter_wound = i
 			msg += "[iter_wound.get_examine_description(user)]\n"
-		switch(BP.bleed_dam)
-			if(WOUND_BLEED_CLOSE_THRESHOLD to WOUND_BLEED_MODERATE_THRESHOLD)
-				msg += "[t_His] [BP.name] looks a bit cut up!\n"
-			if(WOUND_BLEED_MODERATE_THRESHOLD to WOUND_BLEED_SEVERE_THRESHOLD)
-				msg += "<B>[t_His] [BP.name] looks torn up!</B>\n"
-			if(WOUND_BLEED_SEVERE_THRESHOLD to WOUND_BLEED_CRITICAL_THRESHOLD)
-				msg += "<B>[t_His] [BP.name] looks absolutely mangled!</B>\n"
-			if(WOUND_BLEED_CRITICAL_THRESHOLD to INFINITY)
-				msg += "<B>[t_His] [BP.name] looks like it'd been chewed on by a deathclaw!</B>\n"
-
-		var/has_bleed_wounds = is_bleeding()
-		if(istype(BP.current_gauze, /obj/item/stack/medical/gauze))
-			msg += "[t_His] [BP.name] is coated with "
-			var/bandaid_max_time = initial(BP.current_gauze.covering_lifespan)
-			var/bandaid_time = BP.get_covering_timeleft(COVERING_BANDAGE, COVERING_TIME_TRUE)
-			var/bandaid_full = bandaid_max_time * BANDAGE_GOODLIFE_DURATION
-			var/bandaid_mid = bandaid_max_time * BANDAGE_MIDLIFE_DURATION
-			var/bandaid_low = bandaid_max_time * BANDAGE_ENDLIFE_DURATION
-			// how much life we have left in these bandages
-			if(bandaid_time >= bandaid_full)
-				msg += "fresh "
-			if(bandaid_time >= bandaid_mid && bandaid_time < bandaid_full)
-				msg += "slightly worn "
-			if(bandaid_time >= bandaid_low && bandaid_time <= bandaid_mid)
-				msg += "badly worn "
-			if(bandaid_time < bandaid_low)
-				msg += "nearly ruined "
-			msg += "[BP.current_gauze.name]"
-			if(has_bleed_wounds)
-				msg += span_warning(" covering a bleeding wound!\n")
-			else
-				msg += "!\n"
-
-		if(istype(BP.current_suture, /obj/item/stack/medical/suture))
-			msg += "[t_His] [BP.name] is stitched up with "
-			var/bandaid_max_time = initial(BP.current_suture.covering_lifespan)
-			var/bandaid_time = BP.get_covering_timeleft(COVERING_SUTURE, COVERING_TIME_TRUE)
-			var/bandaid_full = bandaid_max_time * SUTURE_GOODLIFE_DURATION
-			var/bandaid_mid = bandaid_max_time * SUTURE_MIDLIFE_DURATION
-			var/bandaid_low = bandaid_max_time * SUTURE_ENDLIFE_DURATION
-			// how much life we have left in these bandages
-			if(bandaid_time >= bandaid_full)
-				msg += "sturdy "
-			if(bandaid_time >= bandaid_mid && bandaid_time < bandaid_full)
-				msg += "slightly frayed "
-			if(bandaid_time >= bandaid_low && bandaid_time <= bandaid_mid)
-				msg += "badly frayed "
-			if(bandaid_time < bandaid_low)
-				msg += "nearly popped "
-			msg += "[BP.current_suture.name]"
-			if(has_bleed_wounds)
-				msg += span_warning(" covering a bleeding wound!\n")
-			else
-				msg += "!\n"
 
 	for(var/X in disabled)
 		var/obj/item/bodypart/BP = X
@@ -307,15 +257,18 @@
 		if(DISGUST_LEVEL_DISGUSTED to INFINITY)
 			msg += "[t_He] look[p_s()] extremely disgusted.\n"
 
+	if(water < THIRST_LEVEL_HARD - 50)
+		msg += "[t_He] [t_is] severely dehydrated.\n"
+
 	var/apparent_blood_volume = blood_volume
 	if(dna.species.use_skintones && skin_tone == "albino")
-		apparent_blood_volume -= 300 // enough to knock you down one tier
+		apparent_blood_volume -= 150 // enough to knock you down one tier
 	switch(apparent_blood_volume)
-		if(BLOOD_VOLUME_SYMPTOMS_ANNOYING to BLOOD_VOLUME_SYMPTOMS_WARN)
+		if(BLOOD_VOLUME_OKAY to BLOOD_VOLUME_SAFE)
 			msg += "[t_He] [t_has] pale skin.\n"
-		if(BLOOD_VOLUME_SYMPTOMS_DEBILITATING to BLOOD_VOLUME_SYMPTOMS_ANNOYING)
+		if(BLOOD_VOLUME_BAD to BLOOD_VOLUME_OKAY)
 			msg += "<b>[t_He] look[p_s()] like pale death.</b>\n"
-		if(-INFINITY to BLOOD_VOLUME_SYMPTOMS_DEBILITATING)
+		if(-INFINITY to BLOOD_VOLUME_BAD)
 			msg += "<span class='deadsay'><b>[t_He] resemble[p_s()] a crushed, empty juice pouch.</b></span>\n"
 
 	if(bleedsuppress)
@@ -325,24 +278,24 @@
 
 		for(var/i in bodyparts)
 			var/obj/item/bodypart/BP = i
-			if(BP.get_bleed_rate(FALSE))
-				bleeding_limbs += "[BP.name]"
+			if(BP.get_bleed_rate())
+				bleeding_limbs += BP
 
-		//var/num_bleeds = LAZYLEN(bleeding_limbs)
+		var/num_bleeds = LAZYLEN(bleeding_limbs)
 		var/list/bleed_text
 		if(appears_dead)
-			bleed_text = list("<span class='deadsay'><B>Blood is visible in [t_his] open ")
+			bleed_text = list("<span class='deadsay'><B>Blood is visible in [t_his] open")
 		else
-			bleed_text = list("<B>[t_He] [t_is] bleeding from [t_his] ")
-		bleed_text += english_list(bleeding_limbs)
-		/* switch(num_bleeds)
+			bleed_text = list("<B>[t_He] [t_is] bleeding from [t_his]")
+
+		switch(num_bleeds)
 			if(1 to 2)
 				bleed_text += " [bleeding_limbs[1].name][num_bleeds == 2 ? " and [bleeding_limbs[2].name]" : ""]"
 			if(3 to INFINITY)
 				for(var/i in 1 to (num_bleeds - 1))
 					var/obj/item/bodypart/BP = bleeding_limbs[i]
 					bleed_text += " [BP.name],"
-				bleed_text += " and [bleeding_limbs[num_bleeds].name]" */
+				bleed_text += " and [bleeding_limbs[num_bleeds].name]"
 
 
 		if(appears_dead)
@@ -421,7 +374,7 @@
 				msg += "[t_He] [t_is] barely conscious.\n"
 		if(getorgan(/obj/item/organ/brain) && !(living_flags & HIDE_OFFLINE_INDICATOR))
 			if(!key)
-				msg += span_deadsay("[t_He] [t_is] totally catatonic. The stresses of the Wasteland must have been too much for [t_him]. Any recovery is unlikely.")
+				msg += "<span class='deadsay'>[t_He] [t_is] totally catatonic. The stresses of the Wasteland must have been too much for [t_him]. Any recovery is unlikely.</span>\n"
 			else if(!client)
 				msg += "[t_He] [t_has] a blank, absent-minded stare and appears completely unresponsive to anything. [t_He] may snap out of it soon.\n"
 			else if(client && ((client.inactivity / 10) / 60 > 10)) //10 Minutes
@@ -440,7 +393,7 @@
 
 	switch(scar_severity)
 		if(1 to 2)
-			msg += span_smallnoticeital("[t_He] [t_has] visible scarring, you can look again to take a closer look...")
+			msg += "<span class='smallnoticeital'>[t_He] [t_has] visible scarring, you can look again to take a closer look...</span>\n"
 		if(3 to 4)
 			msg += "<span class='notice'><i>[t_He] [t_has] several bad scars, you can look again to take a closer look...</i></span>\n"
 		if(5 to 6)
@@ -448,81 +401,36 @@
 		if(7 to INFINITY)
 			msg += "<span class='notice'><b><i>[t_He] [t_is] just absolutely fucked up, you can look again to take a closer look...</i></b></span>\n"
 
-	/// my first labeled loop thingy~
-	//tat_check: // cut down before its time.
-	for(var/X in bodyparts) // just check if *any* tats are visible
-		var/obj/item/bodypart/BP = X
-		if(BP.are_any_tattoos_visible(user))
-			msg += span_notice("[t_He] seem[p_s()] to have some ink done. <a href='?src=[REF(src)];show_tattoos=1'>\[Look closer?\]</a>")
-			break
-
 	if (length(msg))
-		. += span_warning("[msg.Join("")]")
+		. += "<span class='warning'>[msg.Join("")]</span>"
 
 	var/trait_exam = common_trait_examine()
 	if (!isnull(trait_exam))
 		. += trait_exam
-
-	if(HAS_TRAIT(src, TRAIT_IN_HEAT) && (HAS_TRAIT(user, TRAIT_HEAT_DETECT) || src == user))
-		. += ""
-		. += "<span class='love'>[t_He] [t_is] looking for a good time, you should check their OOC Notes.</span>"
-
-	if(HAS_TRAIT(src, TRAIT_SMOL))
-		. += ""
-		. += span_notice("[t_He] looks easy to scoop up.</span>")
 
 	var/traitstring = get_trait_string()
 	if(ishuman(user))
 		var/mob/living/carbon/human/H = user
 		var/obj/item/organ/cyberimp/eyes/hud/CIH = H.getorgan(/obj/item/organ/cyberimp/eyes/hud)
 		if(istype(H.glasses, /obj/item/clothing/glasses/hud) || CIH)
-			var/perpname = get_face_name(get_id_name(""))
-			if(perpname)
-				var/datum/data/record/R = find_record("name", perpname, GLOB.data_core.general)
-				if(R)
-					. += "<span class='deptradio'>Rank:</span> [R.fields["rank"]]\n<a href='?src=[REF(src)];hud=1;photo_front=1'>\[Front photo\]</a><a href='?src=[REF(src)];hud=1;photo_side=1'>\[Side photo\]</a>"
-				if(istype(H.glasses, /obj/item/clothing/glasses/hud/health) || istype(CIH, /obj/item/organ/cyberimp/eyes/hud/medical))
-					var/cyberimp_detect
-					for(var/obj/item/organ/cyberimp/CI in internal_organs)
-						if(CI.status == ORGAN_ROBOTIC && !CI.syndicate_implant)
-							cyberimp_detect += "[name] is modified with a [CI.name]."
-					if(cyberimp_detect)
-						. += "Detected cybernetic modifications:"
-						. += cyberimp_detect
-					if(R)
-						var/health_r = R.fields["p_stat"]
-						. += "<a href='?src=[REF(src)];hud=m;p_stat=1'>\[[health_r]\]</a>"
-						health_r = R.fields["m_stat"]
-						. += "<a href='?src=[REF(src)];hud=m;m_stat=1'>\[[health_r]\]</a>"
-					R = find_record("name", perpname, GLOB.data_core.medical)
-					if(R)
-						. += "<a href='?src=[REF(src)];hud=m;evaluation=1'>\[Medical evaluation\]</a>"
-					if(traitstring)
-						msg += "<span class='info'>Detected physiological traits:<br></span>"
-						msg += "<span class='info'>[traitstring]</span><br>"
+			if(istype(H.glasses, /obj/item/clothing/glasses/hud/health) || istype(CIH, /obj/item/organ/cyberimp/eyes/hud/medical))
+				if(traitstring)
+					msg += "<span class='info'>Detected physiological traits:<br></span>"
+					msg += "<span class='info'>[traitstring]</span><br>"
 
 
 
 				if(istype(H.glasses, /obj/item/clothing/glasses/hud/security) || istype(CIH, /obj/item/organ/cyberimp/eyes/hud/security))
-					if(!user.stat && user != src)
-					//|| !user.canmove || user.restrained()) Fluff: Sechuds have eye-tracking technology and sets 'arrest' to people that the wearer looks and blinks at.
-						var/criminal = "None"
-
-						R = find_record("name", perpname, GLOB.data_core.security)
-						if(R)
-							criminal = R.fields["criminal"]
-
-						. += jointext(list("<span class='deptradio'>Criminal status:</span> <a href='?src=[REF(src)];hud=s;status=1'>\[[criminal]\]</a>",
-							"<span class='deptradio'>Security record:</span> <a href='?src=[REF(src)];hud=s;view=1'>\[View\]</a>",
-							"<a href='?src=[REF(src)];hud=s;add_crime=1'>\[Add crime\]</a>",
-							"<a href='?src=[REF(src)];hud=s;view_comment=1'>\[View comment log\]</a>",
-							"<a href='?src=[REF(src)];hud=s;add_comment=1'>\[Add comment\]</a>"), "")
+					. += "<span class='warning'>Unable to locate a data core entry for this person.</span>"
 	else if(isobserver(user) && traitstring)
 		. += "<span class='info'><b>Traits:</b> [traitstring]</span>"
 
-	. += "\n[generate_special_examine_text()]\n"
+	. += "\n[print_special()]\n"
 
 	SEND_SIGNAL(src, COMSIG_PARENT_EXAMINE, user, .) //This also handles flavor texts now
+
+	if(client.prefs.age_verified)
+		. += span_boldnotice("This player is Age Verified.")
 
 	if(has_status_effect(STATUS_EFFECT_ADMINSLEEP))
 		. += span_danger("<B>This player has been slept by staff.</B>\n")

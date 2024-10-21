@@ -10,19 +10,20 @@
 	var/obj/item/tank/tank_one
 	var/obj/item/tank/tank_two
 	var/obj/item/assembly/attached_device
-	var/mob/attacher = null
+	var/datum/weakref/attacher = null
 	var/valve_open = FALSE
 	var/toggle = 1
 	var/ui_x = 310
 	var/ui_y = 320
 
-/obj/item/transfer_valve/Initialize()
-	. = ..()
-	
-	var/static/list/loc_connections = list(
-		COMSIG_ATOM_ENTERED = PROC_REF(on_entered),
-	)
-	AddElement(/datum/element/connect_loc, loc_connections)
+/obj/item/transfer_valve/Destroy()
+	tank_one = null
+	tank_two = null
+	if(attached_device)
+		attached_device.on_detach()
+		attached_device = null
+	attacher = null
+	return ..()
 
 /obj/item/transfer_valve/IsAssemblyHolder()
 	return TRUE
@@ -30,41 +31,41 @@
 /obj/item/transfer_valve/attackby(obj/item/item, mob/user, params)
 	if(istype(item, /obj/item/tank))
 		if(tank_one && tank_two)
-			to_chat(user, span_warning("There are already two tanks attached, remove one first!"))
+			to_chat(user, "<span class='warning'>There are already two tanks attached, remove one first!</span>")
 			return
 
 		if(!tank_one)
 			if(!user.transferItemToLoc(item, src))
 				return
 			tank_one = item
-			to_chat(user, span_notice("You attach the tank to the transfer valve."))
+			to_chat(user, "<span class='notice'>You attach the tank to the transfer valve.</span>")
 		else if(!tank_two)
 			if(!user.transferItemToLoc(item, src))
 				return
 			tank_two = item
-			to_chat(user, span_notice("You attach the tank to the transfer valve."))
+			to_chat(user, "<span class='notice'>You attach the tank to the transfer valve.</span>")
 
 		update_icon()
 //TODO: Have this take an assemblyholder
 	else if(isassembly(item))
 		var/obj/item/assembly/A = item
 		if(A.secured)
-			to_chat(user, span_notice("The device is secured."))
+			to_chat(user, "<span class='notice'>The device is secured.</span>")
 			return
 		if(attached_device)
-			to_chat(user, span_warning("There is already a device attached to the valve, remove it first!"))
+			to_chat(user, "<span class='warning'>There is already a device attached to the valve, remove it first!</span>")
 			return
 		if(!user.transferItemToLoc(item, src))
 			return
 		attached_device = A
-		to_chat(user, span_notice("You attach the [item] to the valve controls and secure it."))
+		to_chat(user, "<span class='notice'>You attach the [item] to the valve controls and secure it.</span>")
 		A.holder = src
 		A.toggle_secure()	//this calls update_icon(), which calls update_icon() on the holder (i.e. the bomb).
 
 		GLOB.bombers += "[key_name(user)] attached a [item] to a transfer valve."
 		message_admins("[ADMIN_LOOKUPFLW(user)] attached a [item] to a transfer valve.")
 		log_game("[key_name(user)] attached a [item] to a transfer valve.")
-		attacher = user
+		attacher = WEAKREF(user)
 	return
 
 //Attached device memes
@@ -81,11 +82,6 @@
 /obj/item/transfer_valve/on_found(mob/finder)
 	if(attached_device)
 		attached_device.on_found(finder)
-
-/obj/item/transfer_valve/proc/on_entered(atom/movable/AM as mob|obj)
-	SIGNAL_HANDLER
-	if(attached_device)
-		INVOKE_ASYNC(attached_device, PROC_REF(on_entered), AM)
 
 /obj/item/transfer_valve/on_attack_hand()//Triggers mousetraps
 	. = ..()
@@ -209,9 +205,10 @@
 
 		var/admin_attachment_message
 		var/attachment_message
+		var/mob/real_attacher = attacher.resolve()
 		if(attachment)
-			admin_attachment_message = " with [attachment] attached by [attacher ? ADMIN_LOOKUPFLW(attacher) : "Unknown"]"
-			attachment_message = " with [attachment] attached by [attacher ? key_name_admin(attacher) : "Unknown"]"
+			admin_attachment_message = " with [attachment] attached by [real_attacher ? ADMIN_LOOKUPFLW(real_attacher) : "Unknown"]"
+			attachment_message = " with [attachment] attached by [real_attacher ? key_name_admin(real_attacher) : "Unknown"]"
 
 		var/mob/bomber = get_mob_by_key(fingerprintslast)
 		var/admin_bomber_message
@@ -228,7 +225,7 @@
 
 		merge_gases()
 		for(var/i in 1 to 6)
-			addtimer(CALLBACK(src, /atom/.proc/update_icon), 20 + (i - 1) * 10)
+			addtimer(CALLBACK(src, TYPE_PROC_REF(/atom, update_icon)), 20 + (i - 1) * 10)
 
 	else if(valve_open && tank_one && tank_two)
 		split_gases()

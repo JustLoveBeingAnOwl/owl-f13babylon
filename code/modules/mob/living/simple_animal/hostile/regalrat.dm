@@ -25,21 +25,23 @@
 	attack_sound = 'sound/weapons/punch1.ogg'
 	ventcrawler = VENTCRAWLER_ALWAYS
 	unique_name = TRUE
-	faction = list("rat", "rat-friend")
-	pass_flags = PASSTABLE | PASSMOB | PASSGRILLE
+	faction = list("rat")
 	var/datum/action/cooldown/coffer
 	var/datum/action/cooldown/riot
-	can_ghost_into = TRUE
-	desc_short = "King of the squeaks!"
 	///Number assigned to rats and mice, checked when determining infighting.
 
-/mob/living/simple_animal/hostile/regalrat/Initialize()
+/mob/living/simple_animal/hostile/regalrat/Initialize(mapload)
 	. = ..()
 	coffer = new /datum/action/cooldown/coffer
 	coffer.Grant(src)
 	riot = new /datum/action/cooldown/riot
 	riot.Grant(src)
 	INVOKE_ASYNC(src, PROC_REF(get_player))
+
+/mob/living/simple_animal/hostile/regalrat/Destroy()
+	QDEL_NULL(coffer)
+	QDEL_NULL(riot)
+	return ..()
 
 /mob/living/simple_animal/hostile/regalrat/proc/get_player()
 	var/list/mob/dead/observer/candidates = pollGhostCandidates("Do you want to play as the Royal Rat, cheesey be his crown?", ROLE_SENTIENCE, null, FALSE, 100, POLL_IGNORE_SENTIENCE_POTION)
@@ -73,11 +75,11 @@
 	if(istype(user,/mob/living/simple_animal/hostile/rat))
 		var/mob/living/simple_animal/hostile/rat/ratself = user
 		if(ratself.faction_check_mob(src, TRUE))
-			. += span_notice("This is your king. Long live his majesty!")
+			. += "<span class='notice'>This is your king. Long live his majesty!</span>"
 		else
-			. += span_warning("This is a false king! Strike him down!")
+			. += "<span class='warning'>This is a false king! Strike him down!</span>"
 	else if(istype(user,/mob/living/simple_animal/hostile/regalrat))
-		. += span_warning("Who is this foolish false king? This will not stand!")
+		. += "<span class='warning'>Who is this foolish false king? This will not stand!</span>"
 
 /**
  *This action creates trash, money, dirt, and cheese.
@@ -99,15 +101,15 @@
 	var/loot = rand(1,100)
 	switch(loot)
 		if(1 to 5)
-			to_chat(owner, span_notice("Score! You find some cheese!"))
+			to_chat(owner, "<span class='notice'>Score! You find some cheese!</span>")
 			new /obj/item/reagent_containers/food/snacks/cheesewedge(T)
 		if(6 to 10)
 			var/pickedcoin = pick(GLOB.ratking_coins)
-			to_chat(owner, span_notice("You find some leftover coins. More for the royal treasury!"))
+			to_chat(owner, "<span class='notice'>You find some leftover coins. More for the royal treasury!</span>")
 			for(var/i = 1 to rand(1,3))
 				new pickedcoin(T)
 		if(11)
-			to_chat(owner, span_notice("You find a... Hunh. This coin doesn't look right."))
+			to_chat(owner, "<span class='notice'>You find a... Hunh. This coin doesn't look right.</span>")
 			var/rarecoin = rand(1,2)
 			if (rarecoin == 1)
 				new /obj/item/coin/twoheaded(T)
@@ -115,11 +117,11 @@
 				new /obj/item/coin/antagtoken(T)
 		if(12 to 40)
 			var/pickedtrash = pick(GLOB.ratking_trash)
-			to_chat(owner, span_notice("You just find more garbage and dirt. Lovely, but beneath you now."))
+			to_chat(owner, "<span class='notice'>You just find more garbage and dirt. Lovely, but beneath you now.</span>")
 			new /obj/effect/decal/cleanable/dirt(T)
 			new pickedtrash(T)
 		if(41 to 100)
-			to_chat(owner, span_notice("Drat. Nothing."))
+			to_chat(owner, "<span class='notice'>Drat. Nothing.</span>")
 			new /obj/effect/decal/cleanable/dirt(T)
 	StartCooldown()
 
@@ -153,12 +155,12 @@
 		qdel(M)
 	if(!something_from_nothing)
 		if(LAZYLEN(SSmobs.cheeserats) >= cap)
-			to_chat(owner,span_warning("There's too many mice on this station to beckon a new one! Find them first!"))
+			to_chat(owner,"<span class='warning'>There's too many mice on this station to beckon a new one! Find them first!</span>")
 			return
 		new /mob/living/simple_animal/mouse(owner.loc)
-		owner.visible_message(span_warning("[owner] commands a mouse to its side!"))
+		owner.visible_message("<span class='warning'>[owner] commands a mouse to its side!</span>")
 	else
-		owner.visible_message(span_warning("[owner] commands its army to action, mutating them into rats!"))
+		owner.visible_message("<span class='warning'>[owner] commands its army to action, mutating them into rats!</span>")
 	StartCooldown()
 
 /mob/living/simple_animal/hostile/rat
@@ -168,9 +170,9 @@
 	icon_living = "mouse_gray"
 	icon_dead = "mouse_gray_dead"
 	speak = list("Skree!","SKREEE!","Squeak?")
-	speak_emote = list("skrees")
-	emote_hear = list("Hisses!")
-	emote_see = list("charges around angrily.", "stands on its hind legs threateningly.")
+	speak_emote = list("squeaks")
+	emote_hear = list("Hisses.")
+	emote_see = list("runs in a circle.", "stands on its hind legs.")
 	melee_damage_lower = 3
 	melee_damage_upper = 5
 	obj_damage = 5
@@ -179,144 +181,18 @@
 	see_in_dark = 6
 	maxHealth = 15
 	health = 15
-	retreat_distance = 0
-	minimum_distance = 0
-	aggro_vision_range = 7
-	vision_range = 8
-	waddle_amount = 3
-	waddle_up_time = 1
-	waddle_side_time = 2
 	butcher_results = list(/obj/item/reagent_containers/food/snacks/meat/slab = 1)
 	density = FALSE
 	ventcrawler = VENTCRAWLER_ALWAYS
 	pass_flags = PASSTABLE | PASSGRILLE | PASSMOB
-	randpixel = 6
 	mob_size = MOB_SIZE_TINY
 	mob_biotypes = MOB_ORGANIC|MOB_BEAST
-	faction = list("rat", "rat-friend")
-	can_ghost_into = TRUE
-	desc_short = "Squeak!"
-	pop_required_to_jump_into = 0	
-	var/is_smol = FALSE
+	faction = list("rat")
 
-	variation_list = list(
-		MOB_SPEED_LIST(1.5, 1.8, 2.0),
-		MOB_SPEED_CHANGE_PER_TURN_CHANCE(50),
-		MOB_HEALTH_LIST(5, 10, 15, 20, 24),
-		MOB_RETREAT_DISTANCE_LIST(0, 1, 3),
-		MOB_RETREAT_DISTANCE_CHANGE_PER_TURN_CHANCE(100),
-		MOB_MINIMUM_DISTANCE_LIST(0, 0, 0, 1, 2),
-		MOB_MINIMUM_DISTANCE_CHANGE_PER_TURN_CHANCE(40),
-	)
-
-/// nerfed rats for above-ground spawn
-/// they run around like assholes and avoid player interaction at all costs
-/mob/living/simple_animal/hostile/rat/skitter
-	name = "radmouse"
-	desc = "It's a scared lil rodent with anxiety issues."
-	icon_state = "mouse_gray"
-	icon_living = "mouse_gray"
-	icon_dead = "mouse_gray_dead"
-	speak = list("Squeak!","Squeak!!","Squeak?")
-	speak_emote = list("squeaks")
-	emote_hear = list("Squeaks.")
-	emote_see = list("dances around in a circle.", "stands on its hind legs.")
-	melee_damage_lower = 2
-	melee_damage_upper = 3
-	obj_damage = 10
-	speak_chance = 30
-	turns_per_move = 0
-	see_in_dark = 10
-	maxHealth = 5
-	health = 5
-	retreat_distance = 7
-	minimum_distance = 7
-	aggro_vision_range = 7
-	vision_range = 10
-	is_smol = TRUE
-
-	variation_list = list(
-		MOB_SPEED_LIST(0.2, 1.5, 1.8, 2.0, 5.0),
-		MOB_SPEED_CHANGE_PER_TURN_CHANCE(50),
-		MOB_HEALTH_LIST(5, 10, 15, 20, 24),
-		MOB_RETREAT_DISTANCE_LIST(3, 5, 7),
-		MOB_RETREAT_DISTANCE_CHANGE_PER_TURN_CHANCE(100),
-		MOB_MINIMUM_DISTANCE_LIST(2, 3, 4, 5, 6),
-		MOB_MINIMUM_DISTANCE_CHANGE_PER_TURN_CHANCE(100),
-	)
-
-/mob/living/simple_animal/hostile/rat/Initialize()
+/mob/living/simple_animal/hostile/rat/Initialize(mapload)
 	. = ..()
 	SSmobs.cheeserats += src
 	AddComponent(/datum/component/swarming)
-	AddElement(/datum/element/mob_holder, "mouse_gray")
-	if(!is_smol)
-		do_alert_animation(src)
-		resize = 1.5
-		update_transform()
-
-/// nerfed rats for above-ground spawn
-/// they like people
-/mob/living/simple_animal/hostile/rat/skitter/curious
-	name = "curious mouse"
-	desc = "A rodent that seems more at ease around people."
-	response_help_continuous = "pets"
-	response_help_simple = "pet"
-	icon_state = "mouse_gray"
-	icon_living = "mouse_gray"
-	icon_dead = "mouse_gray_dead"
-	color = "#bfe0ff"
-	speak = list("Squeak!","Squeak!!","Squeak?")
-	speak_emote = list("squeaks")
-	emote_hear = list("Squeaks.")
-	emote_see = list("dances around in a circle.", "stands on its hind legs.")
-	melee_damage_lower = 15
-	melee_damage_upper = 20
-	obj_damage = 30
-	speak_chance = 30
-	turns_per_move = 0
-	see_in_dark = 10
-	maxHealth = 50
-	health = 50
-	retreat_distance = 7
-	minimum_distance = 7
-	aggro_vision_range = 7
-	vision_range = 10
-	faction = list("rat", "rat-friend", "neutral")
-	is_smol = TRUE
-
-	variation_list = list(
-		MOB_SPEED_LIST(0.2, 1.5, 1.8, 2.0, 5.0),
-		MOB_SPEED_CHANGE_PER_TURN_CHANCE(50),
-		MOB_HEALTH_LIST(30, 35, 40, 45, 50),
-		MOB_RETREAT_DISTANCE_LIST(3, 5, 7),
-		MOB_RETREAT_DISTANCE_CHANGE_PER_TURN_CHANCE(100),
-		MOB_MINIMUM_DISTANCE_LIST(2, 3, 4, 5, 6),
-		MOB_MINIMUM_DISTANCE_CHANGE_PER_TURN_CHANCE(100),
-	)
-
-/mob/living/simple_animal/hostile/rat/skitter/curious/Initialize()
-	. = ..()
-	emote("flip")
-	emote("spin")
-	emote("squeak")
-	visible_message(span_notice("[src] sure looks friendly!"))
-
-/mob/living/simple_animal/hostile/rat/become_the_mob(mob/user)
-	call_backup = /obj/effect/proc_holder/mob_common/summon_backup/rat
-	send_mobs = /obj/effect/proc_holder/mob_common/direct_mobs/rat
-	make_a_nest = /obj/effect/proc_holder/mob_common/make_nest/rat
-	. = ..()
-
-/mob/living/simple_animal/hostile/rat/skitter/become_the_mob(mob/user)
-	make_a_nest = /obj/effect/proc_holder/mob_common/make_nest/mouse
-	. = ..()
-
-/mob/living/simple_animal/hostile/rat/skitter/curious/become_the_mob(mob/user)
-	call_backup = null
-	send_mobs = null
-	make_a_nest = null
-	. = ..()
 
 /mob/living/simple_animal/hostile/rat/Destroy()
 	SSmobs.cheeserats -= src
@@ -327,15 +203,15 @@
 	if(istype(user,/mob/living/simple_animal/hostile/rat))
 		var/mob/living/simple_animal/hostile/rat/ratself = user
 		if(ratself.faction_check_mob(src, TRUE))
-			. += span_notice("You both serve the same king.")
+			. += "<span class='notice'>You both serve the same king.</span>"
 		else
-			. += span_warning("This fool serves a different king!")
+			. += "<span class='warning'>This fool serves a different king!</span>"
 	else if(istype(user,/mob/living/simple_animal/hostile/regalrat))
 		var/mob/living/simple_animal/hostile/regalrat/ratking = user
 		if(ratking.faction_check_mob(src, TRUE))
-			. += span_notice("This rat serves under you.")
+			. += "<span class='notice'>This rat serves under you.</span>"
 		else
-			. += span_warning("This peasant serves a different king! Strike him down!")
+			. += "<span class='warning'>This peasant serves a different king! Strike him down!</span>"
 
 /mob/living/simple_animal/hostile/rat/CanAttack(atom/the_target)
 	if(istype(the_target,/mob/living/simple_animal))
@@ -362,11 +238,11 @@
 			var/obj/structure/cable/C = locate() in F
 			if(C && prob(15))
 				if(C.avail())
-					visible_message(span_warning("[src] chews through the [C]. It's toast!"))
+					visible_message("<span class='warning'>[src] chews through the [C]. It's toast!</span>")
 					playsound(src, 'sound/effects/sparks2.ogg', 100, TRUE)
 					C.deconstruct()
 					death()
 			else if(C && C.avail())
-				visible_message(span_warning("[src] chews through the [C]. It looks unharmed!"))
+				visible_message("<span class='warning'>[src] chews through the [C]. It looks unharmed!</span>")
 				playsound(src, 'sound/effects/sparks2.ogg', 100, TRUE)
 				C.deconstruct()

@@ -1,3 +1,75 @@
+GLOBAL_LIST_INIT(department_radio_prefixes, list(":", "."))
+
+GLOBAL_LIST_INIT(department_radio_keys, list(
+	// Location
+	MODE_KEY_R_HAND = MODE_R_HAND,
+	MODE_KEY_L_HAND = MODE_L_HAND,
+	MODE_KEY_INTERCOM = MODE_INTERCOM,
+
+	// Department
+	MODE_KEY_DEPARTMENT = MODE_DEPARTMENT,
+	RADIO_KEY_COMMAND = RADIO_CHANNEL_COMMAND,
+	RADIO_KEY_SCIENCE = RADIO_CHANNEL_SCIENCE,
+	RADIO_KEY_MEDICAL = RADIO_CHANNEL_MEDICAL,
+	RADIO_KEY_ENGINEERING = RADIO_CHANNEL_ENGINEERING,
+	RADIO_KEY_SECURITY = RADIO_CHANNEL_SECURITY,
+	RADIO_KEY_SUPPLY = RADIO_CHANNEL_SUPPLY,
+	RADIO_KEY_SERVICE = RADIO_CHANNEL_SERVICE,
+
+	// Faction
+	RADIO_KEY_SYNDICATE = RADIO_CHANNEL_SYNDICATE,
+	RADIO_KEY_CENTCOM = RADIO_CHANNEL_CENTCOM,
+
+	// Fallout 13
+	RADIO_KEY_VAULT = RADIO_CHANNEL_VAULT,
+	RADIO_KEY_NCR = RADIO_CHANNEL_NCR,
+	RADIO_KEY_BOS = RADIO_CHANNEL_BOS,
+	RADIO_KEY_ENCLAVE = RADIO_CHANNEL_ENCLAVE,
+	RADIO_KEY_TOWN = RADIO_CHANNEL_TOWN,
+	RADIO_KEY_LEGION = RADIO_CHANNEL_LEGION,
+	RADIO_KEY_RANGER = RADIO_CHANNEL_RANGER,
+	RADIO_KEY_DEN = RADIO_CHANNEL_DEN,
+	RADIO_KEY_KHANS = RADIO_CHANNEL_KHANS,
+
+	// Admin
+	MODE_KEY_ADMIN = MODE_ADMIN,
+	MODE_KEY_DEADMIN = MODE_DEADMIN,
+
+	// Misc
+	RADIO_KEY_AI_PRIVATE = RADIO_CHANNEL_AI_PRIVATE, // AI Upload channel
+	MODE_KEY_VOCALCORDS = MODE_VOCALCORDS,		// vocal cords, used by Voice of God
+
+
+	//kinda localization -- rastaf0
+	//same keys as above, but on russian keyboard layout. This file uses cp1251 as encoding.
+	// Location
+	"ê" = MODE_R_HAND,
+	"ä" = MODE_L_HAND,
+	"ø" = MODE_INTERCOM,
+
+	// Department
+	"ð" = MODE_DEPARTMENT,
+	"ñ" = RADIO_CHANNEL_COMMAND,
+	"ò" = RADIO_CHANNEL_SCIENCE,
+	"ü" = RADIO_CHANNEL_MEDICAL,
+	"ó" = RADIO_CHANNEL_ENGINEERING,
+	"û" = RADIO_CHANNEL_SECURITY,
+	"ã" = RADIO_CHANNEL_SUPPLY,
+	"ì" = RADIO_CHANNEL_SERVICE,
+
+	// Faction
+	"å" = RADIO_CHANNEL_SYNDICATE,
+	"í" = RADIO_CHANNEL_CENTCOM,
+
+	// Admin
+	"ç" = MODE_ADMIN,
+	"â" = MODE_ADMIN,
+
+	// Misc
+	"ù" = RADIO_CHANNEL_AI_PRIVATE,
+	"÷" = MODE_VOCALCORDS
+))
+
 /mob/living/proc/Ellipsis(original_msg, chance = 50, keep_words)
 	if(chance <= 0)
 		return "..."
@@ -20,16 +92,8 @@
 
 	return new_msg
 
-/mob/living/say(message, bubble_type, list/spans = list(), sanitize = TRUE, datum/language/language = null, ignore_spam = FALSE, forced = null, just_chat)
-	/* var/static/list/crit_allowed_modes = list(
-		MODE_WHISPER = TRUE, 
-		MODE_CUSTOM_SAY = TRUE, 
-		MODE_SING = TRUE, 
-		MODE_HEADSET = TRUE, 
-		MODE_ROBOT = TRUE, 
-		MODE_CHANGELING = TRUE, 
-		MODE_ALIEN = TRUE
-		) */
+/mob/living/say(message, bubble_type, list/spans = list(), sanitize = TRUE, datum/language/language = null, ignore_spam = FALSE, forced = null)
+	var/static/list/crit_allowed_modes = list(MODE_WHISPER = TRUE, MODE_CHANGELING = TRUE, MODE_ALIEN = TRUE)
 	var/static/list/unconscious_allowed_modes = list(MODE_CHANGELING = TRUE, MODE_ALIEN = TRUE)
 	var/talk_key = get_key(message)
 
@@ -78,14 +142,15 @@
 		say_dead(original_message)
 		return
 
-	if(check_emote(original_message, just_runechat = just_chat) || !can_speak_basic(original_message, ignore_spam))
+	if(check_emote(original_message) || !can_speak_basic(original_message, ignore_spam))
 		return
 
-	//if(in_critical)
-	//	if(!(crit_allowed_modes[message_mode]))
-	//		return
-	if(stat == UNCONSCIOUS && !(unconscious_allowed_modes[message_mode]))
-		return
+	if(in_critical)
+		if(!(crit_allowed_modes[message_mode]))
+			return
+	else if(stat == UNCONSCIOUS)
+		if(!(unconscious_allowed_modes[message_mode]))
+			return
 
 	// language comma detection.
 	var/datum/language/message_language = get_message_language(message)
@@ -109,26 +174,26 @@
 		return
 
 	if(!can_speak_vocal(message))
-		to_chat(src, span_warning("You find yourself unable to speak!"))
+		to_chat(src, "<span class='warning'>You find yourself unable to speak!</span>")
 		return
 
 	var/message_range = 7
 
-	//var/succumbed = FALSE
+	var/succumbed = FALSE
 
-	//var/fullcrit = InFullCritical()
-	if(in_critical || message_mode == MODE_WHISPER)
-		message_range = 3
-		spans |= SPAN_ITALICS
+	var/fullcrit = InFullCritical()
+	if((InCritical() && !fullcrit) || message_mode == MODE_WHISPER)
+		message_range = 1
+		message_mode = MODE_WHISPER
 		src.log_talk(message, LOG_WHISPER)
-		/* if(fullcrit) // no more dying for you!
+		if(fullcrit)
 			var/health_diff = round(-HEALTH_THRESHOLD_DEAD + health)
 			// If we cut our message short, abruptly end it with a-..
 			var/message_len = length_char(message)
 			message = copytext_char(message, 1, health_diff) + "[message_len > health_diff ? "-.." : "..."]"
 			message = Ellipsis(message, 10, 1)
 			message_mode = MODE_WHISPER_CRIT
-			succumbed = TRUE */
+			succumbed = TRUE
 	else
 		src.log_talk(message, LOG_SAY, forced_by=forced)
 
@@ -170,11 +235,11 @@
 	if(pressure < ONE_ATMOSPHERE*0.4) //Thin air, let's italicise the message
 		spans |= SPAN_ITALICS
 */
-	send_speech(message, message_range, src, bubble_type, spans, language, message_mode, just_chat)
+	send_speech(message, message_range, src, bubble_type, spans, language, message_mode)
 
-	/* if(succumbed)
+	if(succumbed)
 		succumb()
-		to_chat(src, compose_message(src, language, message, null, spans, message_mode)) */
+		to_chat(src, compose_message(src, language, message, null, spans, message_mode))
 
 	return 1
 
@@ -184,9 +249,9 @@
 		var/turf/sourceturf = get_turf(source)
 		var/turf/T = get_turf(src)
 		if(sourceturf && T && !(sourceturf in get_hear(5, T)))
-			. = span_small("[.]")
+			. = "<span class='small'>[.]</span>"
 
-/mob/living/Hear(message, atom/movable/speaker, datum/language/message_language, raw_message, radio_freq, list/spans, message_mode, atom/movable/source, just_chat = FALSE)
+/mob/living/Hear(message, atom/movable/speaker, datum/language/message_language, raw_message, radio_freq, list/spans, message_mode, atom/movable/source)
 	SEND_SIGNAL(src, COMSIG_MOVABLE_HEAR, args) //parent calls can't overwrite the current proc args.
 	if(!client)
 		return
@@ -197,22 +262,20 @@
 			deaf_message = "<span class='name'>[speaker]</span> [speaker.verb_say] something but you cannot hear [speaker.p_them()]."
 			deaf_type = 1
 	else
-		deaf_message = span_notice("You can't hear yourself!")
+		deaf_message = "<span class='notice'>You can't hear yourself!</span>"
 		deaf_type = 2 // Since you should be able to hear yourself without looking
 
 	// Create map text prior to modifying message for goonchat
 	if (client?.prefs?.chat_on_map && stat != UNCONSCIOUS && (client.prefs.see_chat_non_mob || ismob(speaker)) && can_hear())
 		create_chat_message(speaker, message_language, raw_message, spans)
 
-	if(just_chat)
-		return
 	// Recompose message for AI hrefs, language incomprehension.
 	message = compose_message(speaker, message_language, raw_message, radio_freq, spans, message_mode, FALSE, source)
 
 	show_message(message, MSG_AUDIBLE, deaf_message, deaf_type)
 	return message
 
-/mob/living/send_speech(message, message_range = 6, obj/source = src, bubble_type = bubble_icon, list/spans, datum/language/message_language=null, message_mode, just_chat)
+/mob/living/send_speech(message, message_range = 6, obj/source = src, bubble_type = bubble_icon, list/spans, datum/language/message_language=null, message_mode)
 	//var/stutter_chance = max(0, 40-special_c*10)//SPECIAL Integration
 	//if(prob(stutter_chance))
 	//	stuttering += 5
@@ -251,9 +314,9 @@
 	for(var/_AM in listening)
 		var/atom/movable/AM = _AM
 		if(eavesdrop_range && get_dist(source, AM) > message_range && !(the_dead[AM]))
-			AM.Hear(eavesrendered, src, message_language, eavesdropping, null, spans, message_mode, source, just_chat)
+			AM.Hear(eavesrendered, src, message_language, eavesdropping, null, spans, message_mode, source)
 		else
-			AM.Hear(rendered, src, message_language, message, null, spans, message_mode, source, just_chat)
+			AM.Hear(rendered, src, message_language, message, null, spans, message_mode, source)
 	SEND_GLOBAL_SIGNAL(COMSIG_GLOB_LIVING_SAY_SPECIAL, src, message)
 
 	//speech bubble
@@ -263,7 +326,7 @@
 			speech_bubble_recipients.Add(M.client)
 	var/image/I = image('icons/mob/talk.dmi', src, "[bubble_type][say_test(message)]", FLY_LAYER)
 	I.appearance_flags = APPEARANCE_UI_IGNORE_ALPHA
-	INVOKE_ASYNC(GLOBAL_PROC,GLOBAL_PROC_REF(flick_overlay), I, speech_bubble_recipients, 30)
+	INVOKE_ASYNC(GLOBAL_PROC, GLOBAL_PROC_REF(flick_overlay), I, speech_bubble_recipients, 30)
 
 /mob/proc/binarycheck()
 	return FALSE
@@ -275,7 +338,7 @@
 /mob/living/proc/can_speak_basic(message, ignore_spam = FALSE) //Check BEFORE handling of xeno and ling channels
 	if(client)
 		if(client.prefs.muted & MUTE_IC)
-			to_chat(src, span_danger("You cannot speak in IC (muted)."))
+			to_chat(src, "<span class='danger'>You cannot speak in IC (muted).</span>")
 			return 0
 		if(!ignore_spam && client.handle_spam_prevention(message,MUTE_IC))
 			return 0
@@ -295,6 +358,8 @@
 	return 1
 
 /mob/living/proc/get_key(message)
+	if (length(message) < 2) // So that say ":" doesn't runtime.
+		return
 	var/key = message[1]
 	if(key in GLOB.department_radio_prefixes)
 		return lowertext(message[1 + length(key)])
@@ -327,6 +392,9 @@
 
 	if(clockcultslurring)
 		message = CLOCK_CULT_SLUR(message)
+
+	if(uwuslurring)
+		message = uwuslur(message)
 
 	var/end_char = copytext(message, length(message), length(message) + 1)
 	if(!(end_char in list(".", "?", "!", "-", "~", ",", "_", "+", "|", "*")))
@@ -372,7 +440,9 @@
 
 /mob/living/say_mod(input, message_mode)
 	. = ..()
-	if(message_mode != MODE_CUSTOM_SAY)
+	if(message_mode == MODE_WHISPER_CRIT)
+		. = "[verb_whisper] in [p_their()] last breath"
+	else if(message_mode != MODE_CUSTOM_SAY)
 		if(message_mode == MODE_WHISPER)
 			. = verb_whisper
 		else if(stuttering)
@@ -381,8 +451,6 @@
 			. = "gibbers"
 		else if(message_mode == MODE_SING)
 			. = verb_sing
-		else if(InCritical())
-			. = "whines"
 
 /mob/living/whisper(message, bubble_type, list/spans = list(), sanitize = TRUE, datum/language/language = null, ignore_spam = FALSE, forced = null)
 	say("#[message]", bubble_type, spans, sanitize, language, ignore_spam, forced)

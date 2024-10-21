@@ -24,7 +24,7 @@
 	. = ..()
 	if(istype(I, /obj/item/storage/book/bible) || istype(I, /obj/item/nullrod))
 		user.say("BEGONE FOUL MAGICKS!!", forced = "bible")
-		to_chat(user, span_danger("You disrupt the magic of [src] with [I]."))
+		to_chat(user, "<span class='danger'>You disrupt the magic of [src] with [I].</span>")
 		qdel(src)
 
 /obj/effect/eldritch/proc/activate(mob/living/user)
@@ -92,7 +92,7 @@
 
 		return
 	is_in_use = FALSE
-	to_chat(user,span_warning("Your ritual failed! You used either wrong components or are missing something important!"))
+	to_chat(user,"<span class='warning'>Your ritual failed! You used either wrong components or are missing something important!</span>")
 
 /obj/effect/eldritch/big
 	name = "transmutation circle"
@@ -165,7 +165,7 @@
  * Use this whenever you want to add someone to the list
  */
 /datum/reality_smash_tracker/proc/AddMind(datum/mind/M)
-	RegisterSignal(M.current,COMSIG_MOB_CLIENT_LOGIN,PROC_REF(ReworkNetwork))
+	RegisterSignal(M.current,COMSIG_MOB_LOGIN,PROC_REF(ReworkNetwork))
 	targets |= M
 	_Generate()
 	for(var/X in smashes)
@@ -179,7 +179,7 @@
  * Use this whenever you want to remove someone from the list
  */
 /datum/reality_smash_tracker/proc/RemoveMind(datum/mind/M)
-	UnregisterSignal(M.current,COMSIG_MOB_CLIENT_LOGIN)
+	UnregisterSignal(M.current,COMSIG_MOB_LOGIN)
 	targets -= M
 	for(var/obj/effect/reality_smash/RS in smashes)
 		RS.RemoveMind(M)
@@ -196,25 +196,25 @@
 		return ..()
 	var/mob/living/carbon/human/human_user = user
 	if(IS_HERETIC(human_user))
-		to_chat(human_user,span_boldwarning("You know better than to tempt forces out of your control."))
+		to_chat(human_user,"<span class='boldwarning'>You know better than to tempt forces out of your control.</span>")
 	else
 		var/obj/item/bodypart/arm = human_user.get_active_hand()
 		if(prob(25))
-			to_chat(human_user,span_userdanger("An otherwordly presence tears your arm apart into atoms as you try to touch the hole in the very fabric of reality!"))
+			to_chat(human_user,"<span class='userdanger'>An otherwordly presence tears your arm apart into atoms as you try to touch the hole in the very fabric of reality!</span>")
 			arm.dismember()
 			qdel(arm)
 		else
-			to_chat(human_user,span_danger("You pull your hand away from the hole as eldritch energy flails out, trying to latch onto existence itself!"))
+			to_chat(human_user,"<span class='danger'>You pull your hand away from the hole as eldritch energy flails out, trying to latch onto existence itself!</span>")
 
 /obj/effect/broken_illusion/attack_tk(mob/user)
 	if(!ishuman(user))
 		return
 	var/mob/living/carbon/human/human_user = user
 	if(IS_HERETIC(human_user))
-		to_chat(human_user,span_boldwarning("You know better than to tempt forces out of your control."))
+		to_chat(human_user,"<span class='boldwarning'>You know better than to tempt forces out of your control.</span>")
 	else
 		//a very elaborate way to suicide
-		to_chat(human_user,span_userdanger("Eldritch energy lashes out, piercing your fragile mind, tearing it to pieces!"))
+		to_chat(human_user,"<span class='userdanger'>Eldritch energy lashes out, piercing your fragile mind, tearing it to pieces!</span>")
 		human_user.ghostize()
 		var/obj/item/bodypart/head/head = locate() in human_user.bodyparts
 		if(head)
@@ -230,7 +230,7 @@
 /obj/effect/broken_illusion/examine(mob/user)
 	if(!IS_HERETIC(user) && ishuman(user))
 		var/mob/living/carbon/human/human_user = user
-		to_chat(human_user,span_userdanger("Your brain hurts when you look at this!"))
+		to_chat(human_user,"<span class='userdanger'>Your brain hurts when you look at this!</span>")
 		human_user.adjustOrganLoss(ORGAN_SLOT_BRAIN,30)
 	. = ..()
 
@@ -246,7 +246,7 @@
 	///Tracked image
 	var/image/img
 
-/obj/effect/reality_smash/Initialize()
+/obj/effect/reality_smash/Initialize(mapload)
 	. = ..()
 	img = image(icon, src, image_state, OBJ_LAYER)
 	generate_name()

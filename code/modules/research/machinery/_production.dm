@@ -14,6 +14,7 @@
 	var/list/datum/design/matching_designs
 	var/department_tag = "Unidentified"			//used for material distribution among other things.
 	var/datum/techweb/stored_research
+	var/host_id = "SCIENCE"
 	var/datum/techweb/host_research
 
 	var/screen = RESEARCH_FABRICATOR_SCREEN_MAIN
@@ -25,10 +26,15 @@
 	matching_designs = list()
 	cached_designs = list()
 	stored_research = new
-	host_research = SSresearch.science_tech
-	INVOKE_ASYNC(src, PROC_REF(update_research))
+	update_techweb()
+	update_research()
 	materials = AddComponent(/datum/component/remote_materials, "lathe", mapload, _after_insert=CALLBACK(src, PROC_REF(AfterMaterialInsert)))
 	RefreshParts()
+
+/obj/machinery/rnd/production/proc/update_techweb(new_research_id = null)
+	if(istext(new_research_id))
+		host_id = new_research_id
+	host_research = SSresearch.get_techweb_by_id(host_id)
 
 /obj/machinery/rnd/production/Destroy()
 	materials = null
@@ -39,11 +45,15 @@
 	return ..()
 
 /obj/machinery/rnd/production/proc/update_research()
-	host_research.copy_research_to(stored_research, TRUE)
-	update_designs()
+	if(linked_console) //Allows techwebs to correctly sync!!
+		host_research = linked_console.stored_research
+		host_research.copy_research_to(stored_research, TRUE)
+		update_designs()
+	else
+		say("This machine does not have a linked console, and thus cannot print!")
 
 /obj/machinery/rnd/production/proc/update_designs()
-	cached_designs.Cut()
+	cached_designs?.Cut()
 	for(var/i in stored_research.researched_designs)
 		var/datum/design/d = SSresearch.techweb_design_by_id(i)
 		if((isnull(allowed_department_flags) || (d.departmental_flags & allowed_department_flags)) && (d.build_type & allowed_buildtypes))
@@ -276,7 +286,7 @@
 		t = check_mat(D, M)
 		temp_material += " | "
 		if (t < 1)
-			temp_material += span_bad("[all_materials[M] * coeff] [CallMaterialName(M)]")
+			temp_material += "<span class='bad'>[all_materials[M] * coeff] [CallMaterialName(M)]</span>"
 		else
 			temp_material += " [all_materials[M] * coeff] [CallMaterialName(M)]"
 		c = min(c,t)

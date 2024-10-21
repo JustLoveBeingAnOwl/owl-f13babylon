@@ -2,8 +2,8 @@
 	name = "Phobia"
 	desc = "Patient is unreasonably afraid of something."
 	scan_desc = "phobia"
-	gain_text = span_warning("You start finding default values very unnerving...")
-	lose_text = span_notice("You no longer feel afraid of default values.")
+	gain_text = "<span class='warning'>You start finding default values very unnerving...</span>"
+	lose_text = "<span class='notice'>You no longer feel afraid of default values.</span>"
 	var/phobia_type
 	var/next_check = 0
 	var/next_scare = 0
@@ -22,8 +22,8 @@
 	if(!phobia_type)
 		phobia_type = pick(SStraumas.phobia_types)
 
-	gain_text = span_warning("You start finding [phobia_type] very unnerving...")
-	lose_text = span_notice("You no longer feel afraid of [phobia_type].")
+	gain_text = "<span class='warning'>You start finding [phobia_type] very unnerving...</span>"
+	lose_text = "<span class='notice'>You no longer feel afraid of [phobia_type].</span>"
 	scan_desc += " of [phobia_type]"
 	trigger_words = SStraumas.phobia_words[phobia_type]
 	trigger_mobs = SStraumas.phobia_mobs[phobia_type]
@@ -46,22 +46,13 @@
 	if(world.time > next_check && world.time > next_scare)
 		next_check = world.time + 50
 		var/list/seen_atoms = owner.fov_view(7)
-		var/mirror_seen = 0
 
 		if(LAZYLEN(trigger_objs))
 			for(var/obj/O in seen_atoms)
 				if(is_type_in_typecache(O, trigger_objs))
 					freak_out(O)
 					return
-				if(istype(O, /obj/structure/mirror) || istype(O, /obj/effect/overlay/junk/mirror))
-					if(get_dist(owner, O) <= 1)
-						mirror_seen = 1
 			for(var/mob/living/carbon/human/HU in seen_atoms) //check equipment for trigger items
-				if(HU != owner)
-					if(HAS_TRAIT(HU, phobia_type))
-						freak_out(HU)
-				else if(HAS_TRAIT(owner, phobia_type) && mirror_seen)
-					freak_out(owner)
 				for(var/X in HU.get_all_slots() | HU.held_items)
 					var/obj/I = X
 					if(!QDELETED(I) && is_type_in_typecache(I, trigger_objs))
@@ -98,7 +89,7 @@
 
 		if(findtext(hearing_args[HEARING_RAW_MESSAGE], reg))
 			addtimer(CALLBACK(src, PROC_REF(freak_out), null, word), 10) //to react AFTER the chat message
-			hearing_args[HEARING_RAW_MESSAGE] = reg.Replace(hearing_args[HEARING_RAW_MESSAGE], span_phobia("$1"))
+			hearing_args[HEARING_RAW_MESSAGE] = reg.Replace(hearing_args[HEARING_RAW_MESSAGE], "<span class='phobia'>$1</span>")
 			break
 
 /datum/brain_trauma/mild/phobia/handle_speech(datum/source, list/speech_args)
@@ -117,15 +108,15 @@
 		return
 	var/message = pick("spooks you to the bone", "shakes you up", "terrifies you", "sends you into a panic", "sends chills down your spine")
 	if(reason)
-		to_chat(owner, span_userdanger("Seeing [reason] [message]!"))
+		to_chat(owner, "<span class='userdanger'>Seeing [reason] [message]!</span>")
 	else if(trigger_word)
-		to_chat(owner, span_userdanger("Hearing \"[trigger_word]\" [message]!"))
+		to_chat(owner, "<span class='userdanger'>Hearing \"[trigger_word]\" [message]!</span>")
 	else
-		to_chat(owner, span_userdanger("Something [message]!"))
+		to_chat(owner, "<span class='userdanger'>Something [message]!</span>")
 	var/reaction = rand(1,4)
 	switch(reaction)
 		if(1)
-			to_chat(owner, span_warning("You are paralyzed with fear!"))
+			to_chat(owner, "<span class='warning'>You are paralyzed with fear!</span>")
 			owner.Stun(70)
 			owner.Jitter(8)
 		if(2)
@@ -135,7 +126,7 @@
 			if(reason)
 				owner.pointed(reason)
 		if(3)
-			to_chat(owner, span_warning("You shut your eyes in terror!"))
+			to_chat(owner, "<span class='warning'>You shut your eyes in terror!</span>")
 			owner.Jitter(5)
 			owner.blind_eyes(10)
 		if(4)
@@ -144,18 +135,7 @@
 			owner.Jitter(10)
 			owner.stuttering += 10
 
-/datum/brain_trauma/mild/phobia/proc/RealityCheck() // Checks if you're not your own fears.
-	if(HAS_TRAIT(owner, TRAIT_FEARLESS))
-		return
-
-	if(HAS_TRAIT(owner, phobia_type))
-		freak_out(owner)
-
 // Defined phobia types for badminry, not included in the RNG trauma pool to avoid diluting.
-
-/datum/brain_trauma/mild/phobia/rats
-	phobia_type = "rats"
-	random_gain = FALSE
 
 /datum/brain_trauma/mild/phobia/spiders
 	phobia_type = "spiders"
@@ -213,10 +193,6 @@
 	phobia_type = "birds"
 	random_gain = FALSE
 
-/datum/brain_trauma/mild/phobia/dogs
-	phobia_type = "dogs"
-	random_gain = FALSE
-
 /datum/brain_trauma/mild/phobia/falling
 	phobia_type = "falling"
 	random_gain = FALSE
@@ -227,12 +203,4 @@
 
 /datum/brain_trauma/mild/phobia/conspiracies
 	phobia_type = "conspiracies"
-	random_gain = FALSE
-
-/datum/brain_trauma/mild/phobia/eye
-	phobia_type = "eye"
-	random_gain = FALSE
-
-/datum/brain_trauma/mild/phobia/cats
-	phobia_type = "cats"
 	random_gain = FALSE

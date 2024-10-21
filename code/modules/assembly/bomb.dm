@@ -13,15 +13,6 @@
 	var/obj/item/assembly_holder/bombassembly = null   //The first part of the bomb is an assembly holder, holding an igniter+some device
 	var/obj/item/tank/bombtank = null //the second part of the bomb is a plasma tank
 
-/obj/item/onetankbomb/Initialize()
-	. = ..()
-	var/static/list/loc_connections = list(
-		COMSIG_ATOM_ENTERED = PROC_REF(on_entered),
-	)
-	AddElement(/datum/element/connect_loc, loc_connections)
-
-
-
 /obj/item/onetankbomb/IsSpecialAssembly()
 	return TRUE
 
@@ -41,7 +32,7 @@
 		. += "bomb_assembly"
 
 /obj/item/onetankbomb/wrench_act(mob/living/user, obj/item/I)
-	to_chat(user, span_notice("You disassemble [src]!"))
+	to_chat(user, "<span class='notice'>You disassemble [src]!</span>")
 	if(bombassembly)
 		bombassembly.forceMove(drop_location())
 		bombassembly.master = null
@@ -56,7 +47,7 @@
 /obj/item/onetankbomb/welder_act(mob/living/user, obj/item/I)
 	. = FALSE
 	if(status)
-		to_chat(user, span_notice("[bombtank] already has a pressure hole!"))
+		to_chat(user, "<span class='notice'>[bombtank] already has a pressure hole!</span>")
 		return
 	if(!I.tool_start_check(user, amount=0))
 		return
@@ -64,7 +55,7 @@
 		status = TRUE
 		GLOB.bombers += "[key_name(user)] welded a single tank bomb. Temp: [bombtank.air_contents.return_temperature()-T0C]"
 		message_admins("[ADMIN_LOOKUPFLW(user)] welded a single tank bomb. Temp: [bombtank.air_contents.return_temperature()-T0C]")
-		to_chat(user, span_notice("A pressure hole has been bored to [bombtank] valve. \The [bombtank] can now be ignited."))
+		to_chat(user, "<span class='notice'>A pressure hole has been bored to [bombtank] valve. \The [bombtank] can now be ignited.</span>")
 		add_fingerprint(user)
 		return TRUE
 
@@ -90,11 +81,6 @@
 		bombtank.release()
 
 //Assembly / attached device memes
-
-/obj/item/onetankbomb/proc/on_entered(atom/movable/AM as mob|obj) //for mousetraps
-	SIGNAL_HANDLER
-	if(bombassembly)
-		INVOKE_ASYNC(bombassembly, PROC_REF(on_entered), AM)
 
 /obj/item/onetankbomb/on_found(mob/finder) //for mousetraps
 	if(bombassembly)
@@ -130,11 +116,11 @@
 		return
 
 	if((src in user.get_equipped_items(TRUE)) && !user.canUnEquip(src))
-		to_chat(user, span_warning("[src] is stuck to you!"))
+		to_chat(user, "<span class='warning'>[src] is stuck to you!</span>")
 		return
 
 	if(!user.canUnEquip(assembly))
-		to_chat(user, span_warning("[assembly] is stuck to your hand!"))
+		to_chat(user, "<span class='warning'>[assembly] is stuck to your hand!</span>")
 		return
 
 	var/obj/item/onetankbomb/bomb = new
@@ -151,7 +137,7 @@
 	bomb.update_icon()
 
 	user.put_in_hands(bomb)		//Equips the bomb if possible, or puts it on the floor.
-	to_chat(user, span_notice("You attach [assembly] to [src]."))
+	to_chat(user, "<span class='notice'>You attach [assembly] to [src].</span>")
 	return
 
 /obj/item/tank/proc/ignite()	//This happens when a bomb is told to explode

@@ -21,7 +21,7 @@ SUBSYSTEM_DEF(matchmaking)
 /datum/controller/subsystem/matchmaking/proc/add_candidate_aspiration(mob/living/candidate, datum/matchmaking_pref/aspiration)
 	if(!bachelors[candidate])
 		RegisterSignal(candidate, COMSIG_PARENT_QDELETING, PROC_REF(on_candidate_qdel))
-		RegisterSignal(candidate, COMSIG_MOB_CLIENT_LOGOUT, PROC_REF(on_candidate_logout))
+		RegisterSignal(candidate, COMSIG_MOB_LOGOUT, PROC_REF(on_candidate_logout))
 	LAZYADD(bachelors[candidate], aspiration)
 
 
@@ -33,7 +33,7 @@ SUBSYSTEM_DEF(matchmaking)
 
 /datum/controller/subsystem/matchmaking/proc/remove_candidate(mob/living/candidate)
 	bachelors -= candidate
-	UnregisterSignal(candidate, list(COMSIG_PARENT_QDELETING, COMSIG_MOB_CLIENT_LOGOUT))
+	UnregisterSignal(candidate, list(COMSIG_PARENT_QDELETING, COMSIG_MOB_LOGOUT))
 
 
 /datum/controller/subsystem/matchmaking/proc/on_candidate_qdel(mob/living/candidate)
@@ -125,7 +125,7 @@ SUBSYSTEM_DEF(matchmaking)
 	for(var/mob/living/bachelor as anything in bachelors)
 		if(bachelor == pref_holder || bachelor.stat != CONSCIOUS || !bachelor.mind || !bachelor.client)
 			continue
-		
+
 		var/bachelor_ref = REF(bachelor)
 		if(bachelor_ref in SSmatchmaking.matches_made[candidate_ref])
 			continue // Already matched with this one.

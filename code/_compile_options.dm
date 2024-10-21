@@ -1,54 +1,37 @@
-/* To use the ref tracking debugging tool in game
-1. Enable/uncomment the following before using debug tools on your local machine:
-
-**TESTING
-
-**REFERENCE_TRACKING
-
-**REFERENCE_TRACKING_DEBUG
-
-**GC_FAILURE_HARD_LOOKUP
-
-2. Set return statement of the object you wish to ref track to QDEL_HINT_FINDREFERENCE or QDEL_HINT_IFFAIL_FINDREFERENCE (read qdel.dm for the difference between the two)
-
-
-3. Start game up on your local machine and delete the object in question. Look at the daemon log for results.
-
-*/
-
-//#define TESTING				
+//#define TESTING
 //By using the testing("message") proc you can create debug-feedback for people with this
-								//uncommented, but not visible in the release version) 
-//#define DATUMVAR_DEBUGGING_MODE	//Enables the ability to cache datum vars and retrieve later for debugging which vars changed.
+								//uncommented, but not visible in the release version)
 
 // Comment this out if you are debugging problems that might be obscured by custom error handling in world/Error
 #ifdef DEBUG
 #define USE_CUSTOM_ERROR_HANDLER
 #endif
 
+#ifdef CIBUILDING
+	#define UNIT_TESTS
+	#define TESTING
+	#define REFERENCE_TRACKING
+	#define GC_FAILURE_HARD_LOOKUP
+#endif
+
 #ifdef TESTING
-#define DATUMVAR_DEBUGGING_MODE
 
-/*
-* Enables extools-powered reference tracking system, letting you see what is referencing objects that refuse to hard delete.
-*
-* * Requires TESTING to be defined to work.
-*/
-//#define REFERENCE_TRACKING  
+///Used to find the sources of harddels, quite laggy, don't be surpised if it freezes your client for a good while
+//#define REFERENCE_TRACKING
+#ifdef REFERENCE_TRACKING
 
+///Used for doing dry runs of the reference finder, to test for feature completeness
+///Slightly slower, higher in memory. Just not optimal
 //#define REFERENCE_TRACKING_DEBUG
 
-///Method of tracking references without using extools. Slower, kept to avoid over-reliance on extools.
-//#define LEGACY_REFERENCE_TRACKING
-#ifdef LEGACY_REFERENCE_TRACKING
-
-///Use the legacy reference on things hard deleting by default.
+///Run a lookup on things hard deleting by default.
 //#define GC_FAILURE_HARD_LOOKUP
 #ifdef GC_FAILURE_HARD_LOOKUP
+///Don't stop when searching, go till you're totally done
 #define FIND_REF_NO_CHECK_TICK
 #endif //ifdef GC_FAILURE_HARD_LOOKUP
 
-#endif //ifdef LEGACY_REFERENCE_TRACKING
+#endif //ifdef REFERENCE_TRACKING
 
 //#define VISUALIZE_ACTIVE_TURFS	//Highlights atmos active turfs in green
 
@@ -63,27 +46,14 @@
 #ifdef LOWMEMORYMODE
 #define FORCE_MAP "_maps/runtimestation.json"
 #endif
-/*
-//Update this whenever you need to take advantage of more recent byond features
-#define MIN_COMPILER_VERSION 515
-#define MIN_COMPILER_BUILD 1623
-#if DM_VERSION < MIN_COMPILER_VERSION || DM_BUILD < MIN_COMPILER_BUILD
-//Don't forget to update this part
-#error Your version of BYOND is too out-of-date to compile this project. Go to https://secure.byond.com/download and update.
-#error You need version 513.1508 or higher
-#endif
-*/
+
 //Additional code for the above flags.
 #ifdef TESTING
 #warn compiling in TESTING mode. testing() debug messages will be visible.
 #endif
 
 #ifdef GC_FAILURE_HARD_LOOKUP
-#define FIND_REF_NO_CHECK_TICK
-#endif
-
-#ifdef CIBUILDING
-#define UNIT_TESTS
+//#define FIND_REF_NO_CHECK_TICK
 #endif
 
 #ifdef CITESTING

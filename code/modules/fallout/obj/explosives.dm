@@ -83,7 +83,90 @@
 			. += span_warning("It seems activated!")
 
 
+/obj/item/signal_bomb
+	name = "bottlecap signaller mine"
+	desc = "This bottlecap mine appears to have an antenna attached, a blinking light next to it. It appears to be able to be remote activated."
+	w_class = 2
+	icon = 'icons/fallout/objects/crafting.dmi'
+	icon_state = "capmine"
+	item_state = "capmine"
+	throw_speed = 1
+	throw_range = 0
+//	flags = CONDUCT
+	resistance_flags = FLAMMABLE
+	obj_integrity = 80
+	max_integrity = 80
+	var/is_active = FALSE
+	layer = 10
 
+	var/code = 2
+	var/frequency = FREQ_ELECTROPACK
+	var/on = TRUE
+
+/obj/item/signal_bomb/receive_signal(datum/signal/signal)
+	if(!signal || signal.data["code"] != code || is_active)
+		return
+	playsound(src, 'sound/machines/triple_beep.ogg', 75)
+	is_active = TRUE
+	icon_state = initial(icon_state) + "_active"
+	item_state = initial(item_state) + "_active"
+	var/mob/living/carbon/M = loc
+	addtimer(CALLBACK(src, PROC_REF(boom), M), 20)
+
+/obj/item/signal_bomb/proc/boom()
+	explosion(src.loc,0,2,3, flame_range = 6)
+
+/obj/item/signal_bomb/proc/set_frequency(new_frequency)
+	SSradio.remove_object(src, frequency)
+	frequency = new_frequency
+	SSradio.add_object(src, frequency, RADIO_SIGNALER)
+
+/obj/item/signal_bomb/ui_state(mob/user)
+	return GLOB.hands_state
+
+/obj/item/signal_bomb/ui_interact(mob/user, datum/tgui/ui)
+	ui = SStgui.try_update_ui(user, src, ui)
+	if(!ui)
+		ui = new(user, src, "Electropack", name)
+		ui.open()
+
+/obj/item/signal_bomb/ui_data(mob/user)
+	var/list/data = list()
+	data["power"] = on
+	data["frequency"] = frequency
+	data["code"] = code
+	data["minFrequency"] = MIN_FREE_FREQ
+	data["maxFrequency"] = MAX_FREE_FREQ
+	return data
+
+/obj/item/signal_bomb/ui_act(action, params)
+	if(..())
+		return
+
+	switch(action)
+		if("power")
+			on = !on
+			icon_state = "electropack[on]"
+			. = TRUE
+		if("freq")
+			var/value = unformat_frequency(params["freq"])
+			if(value)
+				frequency = sanitize_frequency(value, TRUE)
+				set_frequency(frequency)
+				. = TRUE
+		if("code")
+			var/value = text2num(params["code"])
+			if(value)
+				value = round(value)
+				code = clamp(value, 1, 100)
+				. = TRUE
+		if("reset")
+			if(params["reset"] == "freq")
+				frequency = initial(frequency)
+				. = TRUE
+			else if(params["reset"] == "code")
+				code = initial(code)
+				. = TRUE
 
 /obj/item/grenade/plastic/c4/New()
 	wires = new /datum/wires/explosive/c4(src)
@@ -112,7 +195,7 @@
 	. = ..()
 	AddElement(/datum/element/empprotection, EMP_PROTECT_WIRES)
 
-/obj/item/mine/Initialize()
+/obj/item/mine/Initialize(mapload)
 	. = ..()
 	var/static/list/loc_connections = list(
 		COMSIG_ATOM_ENTERED = PROC_REF(on_entered),
@@ -132,15 +215,15 @@
 
 /obj/item/mine/attack_self(mob/user)
 	if(armed)
-		to_chat(user, span_danger("The mine is already armed!")) //how did we get here
+		to_chat(user, "<span class='danger'>The mine is already armed!</span>") //how did we get here
 	if(user.dropItemToGround(src))
 		anchored = TRUE
 		addtimer(CALLBACK(src, PROC_REF(arm)), 5 SECONDS)
-		to_chat(user, span_notice("You drop the mine and activate the 5-second arming process."))
+		to_chat(user, "<span class='notice'>You drop the mine and activate the 5-second arming process.</span>")
 		return
 
 /obj/item/mine/proc/arm()
-	visible_message(span_danger("[src] beeps!"))
+	visible_message("<span class='danger'>[src] beeps!</span>")
 	if(armed)
 		triggermine()
 		return
@@ -152,7 +235,7 @@
 	else ..()
 
 /obj/item/mine/proc/mineEffect(mob/victim)
-	to_chat(victim, span_danger("*click*"))
+	to_chat(victim, "<span class='danger'>*click*</span>")
 
 /obj/item/mine/proc/on_entered(datum/source, atom/movable/arrived, atom/old_loc, list/atom/old_locs)
 	SIGNAL_HANDLER
@@ -160,7 +243,7 @@
 		return
 	if(triggered || !isturf(loc) || !isliving(arrived) || isstructure(arrived) || isnottriggermine(arrived))
 		return
-	
+
 	if(arrived.movement_type & FLYING)
 		return
 
@@ -169,7 +252,7 @@
 /obj/item/mine/proc/triggermine(mob/victim)
 	if(triggered)
 		return
-	visible_message(span_danger("[victim] sets off [icon2html(src, viewers(src))] [src]!"))
+	visible_message("<span class='danger'>[victim] sets off [icon2html(src, viewers(src))] [src]!</span>")
 	var/datum/effect_system/spark_spread/s = new /datum/effect_system/spark_spread
 	s.set_up(3, 1, src)
 	s.start()
@@ -178,16 +261,16 @@
 	triggered = 1
 	qdel(src)
 
-/obj/item/mine/take_damage(damage_amount, damage_type, damage_flag, sound_effect, attack_dir, atom/attacked_by)
+/obj/item/mine/take_damage(damage_amount, damage_type, damage_flag, sound_effect, attack_dir)
 	. = ..()
 	triggermine()
 
 /obj/item/mine/screwdriver_act(mob/living/user, obj/item/S)
 	if(!armed)
 		return
-	to_chat(user, span_danger("You begin carefully disarming [src]."))
+	to_chat(user, "<span class='danger'>You begin carefully disarming [src].</span>")
 	if(S.use_tool(src, user, 200, volume=100)) //20 seconds base, if you don't want to play the game of chance
-		to_chat(user, span_notice("You carefully destroy the detonator of the mine!"))
+		to_chat(user, "<span class='notice'>You carefully destroy the detonator of the mine!</span>")
 		qdel(src)
 	else
 		triggermine(user)
@@ -248,7 +331,7 @@
 
 /obj/item/mine/kickmine/mineEffect(mob/victim)
 	if(isliving(victim) && victim.client)
-		to_chat(victim, span_userdanger("You have been kicked FOR NO REISIN!"))
+		to_chat(victim, "<span class='userdanger'>You have been kicked FOR NO REISIN!</span>")
 		qdel(victim.client)
 
 

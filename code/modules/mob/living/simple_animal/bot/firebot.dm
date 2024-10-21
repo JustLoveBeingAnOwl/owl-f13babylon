@@ -39,7 +39,7 @@
 	var/extinguish_fires = TRUE
 	var/stationary_mode = FALSE
 
-/mob/living/simple_animal/bot/firebot/Initialize()
+/mob/living/simple_animal/bot/firebot/Initialize(mapload)
 	. = ..()
 	update_icon()
 	var/datum/job/engineer/J = new/datum/job/engineer
@@ -123,8 +123,8 @@
 	. = ..()
 	if(emagged == 1)
 		if(user)
-			to_chat(user, span_danger("[src] buzzes and beeps."))
-		audible_message(span_danger("[src] buzzes oddly!"))
+			to_chat(user, "<span class='danger'>[src] buzzes and beeps.</span>")
+		audible_message("<span class='danger'>[src] buzzes oddly!</span>")
 		playsound(src, "sparks", 75, TRUE)
 		if(user)
 			old_target_fire = user
@@ -231,7 +231,7 @@
 
 	if(target_fire && (get_dist(src, target_fire) > 2))
 
-		path = get_path_to(src, get_turf(target_fire), TYPE_PROC_REF(/turf, Distance_cardinal), 0, 30, 1, id=access_card)
+		path = get_path_to(src, target_fire, 30, 1, id=access_card)
 		mode = BOT_MOVING
 		if(!path.len)
 			soft_reset()
@@ -297,7 +297,7 @@
 
 /mob/living/simple_animal/bot/firebot/explode()
 	on = FALSE
-	visible_message(span_boldannounce("[src] blows apart!"))
+	visible_message("<span class='boldannounce'>[src] blows apart!</span>")
 
 	var/atom/Tsec = drop_location()
 

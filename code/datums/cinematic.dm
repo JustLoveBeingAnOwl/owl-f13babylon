@@ -18,7 +18,7 @@
 	playing.play(watcher)
 	qdel(playing)
 
-/obj/screen/cinematic
+/atom/movable/screen/cinematic
 	icon = 'icons/effects/station_explosion.dmi'
 	icon_state = "station_intact"
 	plane = SPLASHSCREEN_PLANE
@@ -32,7 +32,7 @@
 	var/list/watching = list() //List of clients watching this
 	var/list/locked = list() //Who had mob_transforming  set during the cinematic
 	var/is_global = FALSE //Global cinematics will override mob-specific ones
-	var/obj/screen/cinematic/screen
+	var/atom/movable/screen/cinematic/screen
 	var/datum/callback/special_callback //For special effects synced with animation (explosions after the countdown etc)
 	var/cleanup_time = 300 //How long for the final screen to remain
 	var/stop_ooc = TRUE //Turns off ooc when played globally.
@@ -74,11 +74,11 @@
 		ooc_toggled = TRUE
 		toggle_ooc(FALSE)
 
-	//Place /obj/screen/cinematic into everyone's screens, prevent them from moving
+	//Place /atom/movable/screen/cinematic into everyone's screens, prevent them from moving
 	for(var/MM in watchers)
 		var/mob/M = MM
 		show_to(M, M.client)
-		RegisterSignal(M, COMSIG_MOB_CLIENT_LOGIN, PROC_REF(show_to))
+		RegisterSignal(M, COMSIG_MOB_LOGIN, PROC_REF(show_to))
 		//Close watcher ui's
 		SStgui.close_user_uis(M)
 
@@ -92,17 +92,17 @@
 	if(ooc_toggled)
 		toggle_ooc(TRUE)
 
-/datum/cinematic/proc/show_to(mob/M, client/C)
+/datum/cinematic/proc/show_to(mob/M)
 	//SIGNAL_HANDLER //must not wait.
 
 	if(!M.mob_transforming)
 		locked += M
 		M.mob_transforming = TRUE //Should this be done for non-global cinematics or even at all ?
-	if(!C)
+	if(!M.client)
 		return
-	watching += C
-	//M.overlay_fullscreen("cinematic",/obj/screen/fullscreen/cinematic_backdrop)
-	C.screen += screen
+	watching += M.client
+	//M.overlay_fullscreen("cinematic",/atom/movable/screen/fullscreen/cinematic_backdrop)
+	M.client.screen += screen
 
 //Sound helper
 /datum/cinematic/proc/cinematic_sound(s)

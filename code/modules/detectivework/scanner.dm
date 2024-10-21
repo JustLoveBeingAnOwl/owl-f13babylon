@@ -32,10 +32,10 @@
 /obj/item/detective_scanner/attack_self(mob/user)
 	if(log.len && !scanning)
 		scanning = TRUE
-		to_chat(user, span_notice("Printing report, please wait..."))
+		to_chat(user, "<span class='notice'>Printing report, please wait...</span>")
 		addtimer(CALLBACK(src, PROC_REF(PrintReport)), 100)
 	else
-		to_chat(user, span_notice("The scanner has no logs or is in use."))
+		to_chat(user, "<span class='notice'>The scanner has no logs or is in use.</span>")
 
 /obj/item/detective_scanner/attack(mob/living/M, mob/user)
 	return
@@ -56,7 +56,7 @@
 	if(ismob(loc))
 		var/mob/M = loc
 		M.put_in_hands(P)
-		to_chat(M, span_notice("Report printed. Log cleared."))
+		to_chat(M, "<span class='notice'>Report printed. Log cleared.</span>")
 
 	// Clear the logs
 	log = list()
@@ -77,7 +77,7 @@
 		scanning = TRUE
 
 		user.visible_message("\The [user] points the [src.name] at \the [A] and performs a forensic scan.")
-		to_chat(user, span_notice("You scan \the [A]. The scanner is now analysing the results..."))
+		to_chat(user, "<span class='notice'>You scan \the [A]. The scanner is now analysing the results...</span>")
 
 
 		// GATHER INFORMATION
@@ -171,10 +171,10 @@
 		if(!found_something)
 			add_log("<I># No forensic traces found #</I>", 0) // Don't display this to the holder user
 			if(holder)
-				to_chat(holder, span_warning("Unable to locate any fingerprints, materials, fibers, or blood on \the [target_name]!"))
+				to_chat(holder, "<span class='warning'>Unable to locate any fingerprints, materials, fibers, or blood on \the [target_name]!</span>")
 		else
 			if(holder)
-				to_chat(holder, span_notice("You finish scanning \the [target_name]."))
+				to_chat(holder, "<span class='notice'>You finish scanning \the [target_name].</span>")
 
 		add_log("---------------------------------------------------------", 0)
 		scanning = FALSE
@@ -199,26 +199,26 @@
 		return
 	. = TRUE
 	if(!LAZYLEN(log))
-		to_chat(user, span_notice("Cannot clear logs, the scanner has no logs."))
+		to_chat(user, "<span class='notice'>Cannot clear logs, the scanner has no logs.</span>")
 		return
 	if(scanning)
-		to_chat(user, span_notice("Cannot clear logs, the scanner is in use."))
+		to_chat(user, "<span class='notice'>Cannot clear logs, the scanner is in use.</span>")
 		return
-	to_chat(user, span_notice("The scanner logs are cleared."))
+	to_chat(user, "<span class='notice'>The scanner logs are cleared.</span>")
 	log = list()
 
 /obj/item/detective_scanner/examine(mob/user)
 	. = ..()
 	if(LAZYLEN(log) && !scanning)
-		. += span_notice("Alt-click to clear scanner logs.")
+		. += "<span class='notice'>Alt-click to clear scanner logs.</span>"
 
 /obj/item/detective_scanner/proc/displayDetectiveScanResults(mob/living/user)
 	// No need for can-use checks since the action button should do proper checks
 	if(!LAZYLEN(log))
-		to_chat(user, span_notice("Cannot display logs, the scanner has no logs."))
+		to_chat(user, "<span class='notice'>Cannot display logs, the scanner has no logs.</span>")
 		return
 	if(scanning)
-		to_chat(user, span_notice("Cannot display logs, the scanner is in use."))
+		to_chat(user, "<span class='notice'>Cannot display logs, the scanner is in use.</span>")
 		return
 	to_chat(user, "<span class='notice'><B>Scanner Report</B></span>")
 	for(var/iterLog in log)

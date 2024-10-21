@@ -16,7 +16,7 @@
 	if(ismob(target))
 		var/mob/M = target
 		if(M.anti_magic_check())
-			M.visible_message(span_warning("[src] vanishes on contact with [target]!"))
+			M.visible_message("<span class='warning'>[src] vanishes on contact with [target]!</span>")
 			return BULLET_ACT_BLOCK
 		M.death(0)
 
@@ -33,7 +33,7 @@
 		if(target.hellbound)
 			return BULLET_ACT_BLOCK
 		if(target.anti_magic_check())
-			target.visible_message(span_warning("[src] vanishes on contact with [target]!"))
+			target.visible_message("<span class='warning'>[src] vanishes on contact with [target]!</span>")
 			return BULLET_ACT_BLOCK
 		if(iscarbon(target))
 			var/mob/living/carbon/C = target
@@ -41,9 +41,9 @@
 			C.regenerate_organs()
 		if(target.revive(full_heal = 1))
 			target.grab_ghost(force = TRUE) // even suicides
-			to_chat(target, span_notice("You rise with a start, you're alive!!!"))
+			to_chat(target, "<span class='notice'>You rise with a start, you're alive!!!</span>")
 		else if(target.stat != DEAD)
-			to_chat(target, span_notice("You feel great!"))
+			to_chat(target, "<span class='notice'>You feel great!</span>")
 
 /obj/item/projectile/magic/teleport
 	name = "bolt of teleportation"
@@ -59,7 +59,7 @@
 	if(ismob(target))
 		var/mob/M = target
 		if(M.anti_magic_check())
-			M.visible_message(span_warning("[src] fizzles on contact with [target]!"))
+			M.visible_message("<span class='warning'>[src] fizzles on contact with [target]!</span>")
 			return BULLET_ACT_BLOCK
 	var/teleammount = 0
 	var/teleloc = target
@@ -114,7 +114,7 @@
 	if(ismob(change))
 		var/mob/M = change
 		if(M.anti_magic_check())
-			M.visible_message(span_warning("[src] fizzles on contact with [M]!"))
+			M.visible_message("<span class='warning'>[src] fizzles on contact with [M]!</span>")
 			qdel(src)
 			return BULLET_ACT_BLOCK
 	wabbajack(change)
@@ -240,7 +240,7 @@
 
 	M.wabbajack_act(new_mob)
 
-	to_chat(new_mob, span_warning("Your form morphs into that of a [randomize]."))
+	to_chat(new_mob, "<span class='warning'>Your form morphs into that of a [randomize].</span>")
 
 	var/poly_msg = CONFIG_GET(keyed_list/policy)["polymorph"]
 	if(poly_msg)
@@ -280,7 +280,7 @@
 				if(L.mind)
 					L.mind.transfer_to(S)
 					if(owner)
-						to_chat(S, span_userdanger("You are an animated statue. You cannot move when monitored, but are nearly invincible and deadly when unobserved! Do not harm [owner], your creator."))
+						to_chat(S, "<span class='userdanger'>You are an animated statue. You cannot move when monitored, but are nearly invincible and deadly when unobserved! Do not harm [owner], your creator.</span>")
 				P.forceMove(S)
 				return
 		else
@@ -309,7 +309,7 @@
 	if(ismob(target))
 		var/mob/M = target
 		if(M.anti_magic_check())
-			M.visible_message(span_warning("[src] vanishes on contact with [target]!"))
+			M.visible_message("<span class='warning'>[src] vanishes on contact with [target]!</span>")
 			qdel(src)
 			return BULLET_ACT_BLOCK
 	. = ..()
@@ -328,7 +328,7 @@
 	if(ismob(target))
 		var/mob/M = target
 		if(M.anti_magic_check())
-			M.visible_message(span_warning("[src] vanishes on contact with [target]!"))
+			M.visible_message("<span class='warning'>[src] vanishes on contact with [target]!</span>")
 			qdel(src)
 			return BULLET_ACT_BLOCK
 	. = ..()
@@ -347,7 +347,7 @@
 	if(ismob(A) && locker_suck)
 		var/mob/M = A
 		if(M.anti_magic_check())
-			M.visible_message(span_warning("[src] vanishes on contact with [A]!"))
+			M.visible_message("<span class='warning'>[src] vanishes on contact with [A]!</span>")
 			qdel(src)
 			return
 		if(M.anchored)
@@ -381,7 +381,7 @@
 	var/weakened_icon = "decursed"
 	var/auto_destroy = TRUE
 
-/obj/structure/closet/decay/Initialize()
+/obj/structure/closet/decay/Initialize(mapload)
 	. = ..()
 	if(auto_destroy)
 		addtimer(CALLBACK(src, PROC_REF(bust_open)), 5 MINUTES)
@@ -399,7 +399,7 @@
 
 /obj/structure/closet/decay/proc/decay()
 	animate(src, alpha = 0, time = 30)
-	addtimer(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(qdel), src), 30)
+	QDEL_IN(src, 30)
 
 /obj/structure/closet/decay/open(mob/living/user)
 	. = ..()
@@ -454,7 +454,7 @@
 	if(ismob(target))
 		var/mob/M = target
 		if(M.anti_magic_check())
-			visible_message(span_warning("[src] fizzles on contact with [target]!"))
+			visible_message("<span class='warning'>[src] fizzles on contact with [target]!</span>")
 			qdel(src)
 			return BULLET_ACT_BLOCK
 	tesla_zap(src, zap_range, zap_power, zap_flags)
@@ -462,6 +462,7 @@
 
 /obj/item/projectile/magic/aoe/lightning/Destroy()
 	qdel(chain)
+	caster = null
 	. = ..()
 
 /obj/item/projectile/magic/aoe/fireball
@@ -482,7 +483,7 @@
 	if(ismob(target))
 		var/mob/living/M = target
 		if(M.anti_magic_check())
-			visible_message(span_warning("[src] vanishes into smoke on contact with [target]!"))
+			visible_message("<span class='warning'>[src] vanishes into smoke on contact with [target]!</span>")
 			return BULLET_ACT_BLOCK
 		M.take_overall_damage(0,10) //between this 10 burn, the 10 brute, the explosion brute, and the onfire burn, your at about 65 damage if you stop drop and roll immediately
 	var/turf/T = get_turf(target)
@@ -503,7 +504,7 @@
 			return BULLET_ACT_BLOCK
 	var/turf/T = get_turf(target)
 	for(var/i=0, i<50, i+=10)
-		addtimer(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(explosion), T, -1, exp_heavy, exp_light, exp_flash, FALSE, FALSE, exp_fire), i)
+		addtimer(CALLBACK(GLOBAL_PROC, GLOBAL_PROC_REF(explosion), T, -1, exp_heavy, exp_light, exp_flash, FALSE, FALSE, exp_fire), i)
 
 /obj/item/projectile/magic/nuclear
 	name = "\proper blazing manliness"
@@ -520,7 +521,7 @@
 		if(target == victim)
 			return BULLET_ACT_FORCE_PIERCE
 		used = 1
-		visible_message(span_danger("[victim] slams into [target] with explosive force!"))
+		visible_message("<span class='danger'>[victim] slams into [target] with explosive force!</span>")
 		explosion(src, 2, 3, 4, -1, TRUE, FALSE, 5)
 	else
 		used = 1
@@ -532,4 +533,5 @@
 /obj/item/projectile/magic/nuclear/Destroy()
 	for(var/atom/movable/AM in contents)
 		AM.forceMove(get_turf(src))
+	victim = null
 	. = ..()
