@@ -18,7 +18,6 @@ export const Radio = (props, context) => {
     useCommand,
     subspace,
     subspaceSwitchable,
-    music_toggle,
   } = data;
   const tunedChannel = RADIO_CHANNELS
     .find(channel => channel.freq === frequency);
@@ -52,7 +51,7 @@ export const Radio = (props, context) => {
                 <NumberInput
                   animate
                   unit="kHz"
-                  step={0.1}
+                  step={0.2}
                   stepPixelSize={10}
                   minValue={minFrequency / 10}
                   maxValue={maxFrequency / 10}
@@ -81,12 +80,6 @@ export const Radio = (props, context) => {
                 icon={broadcasting ? 'microphone' : 'microphone-slash'}
                 selected={broadcasting}
                 onClick={() => act('broadcast')} />
-              <Button
-                textAlign="center"
-                width="37px"
-                icon={music_toggle ? 'play' : 'pause'}
-                selected={music_toggle}
-                onClick={() => act('streammusic')} />
               {!!command && (
                 <Button
                   ml={1}

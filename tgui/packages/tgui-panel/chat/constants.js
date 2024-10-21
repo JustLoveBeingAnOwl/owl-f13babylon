@@ -87,9 +87,8 @@ export const MESSAGE_TYPES = [
   {
     type: 'looc',
     name: 'LOOC',
-    description: 'Local Out of Character message. Important, always on.',
+    description: 'Local Out of Character message.',
     selector: '.filter_looc, .looc',
-    important: true,
   },
   {
     type: MESSAGE_TYPE_ADMINPM,
