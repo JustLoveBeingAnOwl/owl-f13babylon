@@ -359,21 +359,6 @@ GLOBAL_LIST_EMPTY(roundstart_race_names)
 		if(mutant_bodyparts["meat_type"]) //I can't believe it's come to the meat
 			H.type_of_meat = GLOB.meat_types[H.dna.features["meat_type"]]
 
-		if(H.physiology)
-			if(mutant_bodyparts["taur"])
-				var/datum/sprite_accessory/taur/T = GLOB.taur_list[H.dna.features["taur"]]
-				switch(T?.taur_mode)
-					if(STYLE_HOOF_TAURIC)
-						H.physiology.footstep_type = FOOTSTEP_MOB_SHOE
-					if(STYLE_PAW_TAURIC)
-						H.physiology.footstep_type = FOOTSTEP_MOB_CLAW
-					if(STYLE_SNEK_TAURIC)
-						H.physiology.footstep_type = FOOTSTEP_MOB_CRAWL
-					else
-						H.physiology.footstep_type = null
-			else
-				H.physiology.footstep_type = null
-
 		if(H.client && has_field_of_vision && CONFIG_GET(flag/use_field_of_vision))
 			H.LoadComponent(/datum/component/field_of_vision, H.field_of_vision_type)
 
@@ -637,21 +622,6 @@ GLOBAL_LIST_EMPTY(roundstart_race_names)
 
 	//Underwear, Undershirts & Socks
 	if(!(NO_UNDERWEAR in species_traits))
-		var/datum/sprite_accessory/taur/TA
-		if(mutant_bodyparts["taur"] && H.dna.features["taur"])
-			TA = GLOB.taur_list[H.dna.features["taur"]]
-		if(!(TA?.hide_legs) && H.socks && !H.hidden_socks && H.get_num_legs(FALSE) >= 2)
-			if(H.saved_socks)
-				H.socks = H.saved_socks
-				H.saved_socks = ""
-			var/datum/sprite_accessory/underwear/socks/S = GLOB.socks_list[H.socks]
-			if(S)
-				var/digilegs = ((DIGITIGRADE in species_traits) && S.has_digitigrade) ? "_d" : ""
-				var/mutable_appearance/MA = mutable_appearance(S.icon, "[S.icon_state][digilegs]", -BODY_LAYER)
-				if(S.has_color)
-					MA.color = "#[H.socks_color]"
-				standing += MA
-
 		if(H.underwear && !H.hidden_underwear)
 			if(H.saved_underwear)
 				H.underwear = H.saved_underwear

@@ -80,10 +80,6 @@
 					icon_state += "_s"
 		else
 			color = "#[owner.dna.features["cock_color"]]"
-		if(genital_flags & GENITAL_CAN_TAUR && S?.taur_icon && (!S.feat_taur || owner.dna.features[S.feat_taur]) && owner.dna.species.mutant_bodyparts["taur"])
-			var/datum/sprite_accessory/taur/T = GLOB.taur_list[owner.dna.features["taur"]]
-			if(T.taur_mode & S.accepted_taurs) //looks out of place on those.
-				lowershape = "taur, [lowershape]"
 
 	desc = "You see [aroused_state ? "an erect" : "a flaccid"] [lowershape] [name]. You estimate it's about [round(length, 0.25)] inch[round(length, 0.25) != 1 ? "es" : ""] long and [round(diameter, 0.25)] inch[round(diameter, 0.25) != 1 ? "es" : ""] in diameter."
 

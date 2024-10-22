@@ -28,6 +28,7 @@
 	tail_type = "mam_tail"
 	wagging_type = "mam_waggingtail"
 	species_type = "robotic"
+	blacklisted = 1
 
 /datum/species/synthliz/spec_life(mob/living/carbon/human/H)
 	if(H.nutrition < NUTRITION_LEVEL_FED)

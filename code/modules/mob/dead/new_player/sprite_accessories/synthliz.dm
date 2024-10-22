@@ -125,7 +125,6 @@
 /datum/sprite_accessory/taur/synthliz
 	name = "Virgo - Synthetic Lizard"
 	icon_state = "synthlizard"
-	taur_mode = STYLE_PAW_TAURIC
 	recommended_species = list("synthliz")
 	matrixed_sections = MATRIX_RED_GREEN
 
@@ -144,8 +143,6 @@
 /datum/sprite_accessory/taur/synthliz/horse
 	name = "Virgo - Synthetic Horse"
 	icon_state = "synthhorse"
-	taur_mode = STYLE_HOOF_TAURIC
-	alt_taur_mode = STYLE_PAW_TAURIC
 
 /datum/sprite_accessory/taur/synthliz/horse/inv
 	name = "Virgo - Synthetic Horse (Inverted)"

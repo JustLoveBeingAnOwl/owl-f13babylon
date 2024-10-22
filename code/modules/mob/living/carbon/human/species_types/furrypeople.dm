@@ -18,3 +18,4 @@
 	species_type = "furry"
 
 	allowed_limb_ids = list("mammal","aquatic","avian")
+	blacklisted = 1

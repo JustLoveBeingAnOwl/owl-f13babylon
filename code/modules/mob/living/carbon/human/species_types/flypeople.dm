@@ -13,6 +13,7 @@
 	exotic_bloodtype = "BUG"
 	exotic_blood_color = BLOOD_COLOR_BUG
 	species_type = "insect"
+	blacklisted = 1
 
 /datum/species/fly/handle_chemicals(datum/reagent/chem, mob/living/carbon/human/H)
 	if(istype(chem, /datum/reagent/toxin/pestkiller))
