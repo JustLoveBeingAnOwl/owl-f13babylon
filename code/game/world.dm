@@ -11,22 +11,22 @@ GLOBAL_LIST(topic_status_cache)
 //So subsystems globals exist, but are not initialised
 
 /world/New()
-#ifdef CIBUILDING
-	if(!__detect_rust_g())
-		world.log << "Failed to find rust_g inside CI environment."
-		del world
-#endif
-
 	var/debug_server = world.GetConfig("env", "AUXTOOLS_DEBUG_DLL")
-	if (debug_server)
-		setup_debugging(debug_server)
-
+	if(debug_server)
+		LIBCALL("debug_server.dll", "auxtools_init")() //! FIXME515 hacky solution till auxtools and sdmm come out with support ~Tsuru
+		enable_debugging()
+	//AUXTOOLS_CHECK(AUXMOS)
+#ifdef EXTOOLS_REFERENCE_TRACKING
+	enable_reference_tracking()
+#endif
 	world.Profile(PROFILE_START)
 	log_world("World loaded at [TIME_STAMP("hh:mm:ss", FALSE)]!")
 
 	GLOB.config_error_log = GLOB.world_manifest_log = GLOB.world_pda_log = GLOB.world_job_debug_log = GLOB.sql_error_log = GLOB.world_href_log = GLOB.world_runtime_log = GLOB.world_attack_log = GLOB.world_game_log = "data/logs/config_error.[GUID()].log" //temporary file used to record errors with loading config, moved to log directory once logging is set bl
 
 	log_world("World loaded at [TIME_STAMP("hh:mm:ss", FALSE)]!")
+
+	make_datum_references_lists()	//initialises global lists for referencing frequently used datums (so that we only ever do it once)
 
 	GLOB.revdata = new
 
@@ -52,6 +52,7 @@ GLOBAL_LIST(topic_status_cache)
 	LoadVerbs(/datum/verbs/menu)
 	if(CONFIG_GET(flag/usewhitelist))
 		load_whitelist()
+	load_multikey_allowlist()
 
 	GLOB.timezoneOffset = text2num(time2text(0,"hh")) * 36000
 
@@ -65,10 +66,6 @@ GLOBAL_LIST(topic_status_cache)
 	LoadBans()
 	initialize_global_loadout_items()
 	reload_custom_roundstart_items_list()//Cit change - loads donator items. Remind me to remove when I port over bay's loadout system
-
-	//Scramble the coords obsfucator
-	GLOB.obfs_x = rand(-2500, 2500)
-	GLOB.obfs_y = rand(-2500, 2500)
 
 	Master.Initialize(10, FALSE, TRUE)
 
@@ -88,11 +85,11 @@ GLOBAL_LIST(topic_status_cache)
 	CONFIG_SET(number/round_end_countdown, 0)
 	var/datum/callback/cb
 #ifdef UNIT_TESTS
-	cb = CALLBACK(GLOBAL_PROC, /proc/RunUnitTests)
+	cb = CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(RunUnitTests))
 #else
 	cb = VARSET_CALLBACK(SSticker, force_ending, TRUE)
 #endif
-	SSticker.OnRoundstart(CALLBACK(GLOBAL_PROC, /proc/_addtimer, cb, 10 SECONDS))
+	SSticker.OnRoundstart(CALLBACK(GLOBAL_PROC,GLOBAL_PROC_REF(_addtimer), cb, 10 SECONDS))
 
 /world/proc/SetupLogs()
 	var/override_dir = params[OVERRIDE_LOG_DIRECTORY_PARAMETER]
@@ -132,6 +129,7 @@ GLOBAL_LIST(topic_status_cache)
 	GLOB.query_debug_log = "[GLOB.log_directory]/query_debug.log"
 	GLOB.world_job_debug_log = "[GLOB.log_directory]/job_debug.log"
 	GLOB.world_paper_log = "[GLOB.log_directory]/paper.log"
+	GLOB.world_validball_log = "[GLOB.log_directory]/validball.log"
 	GLOB.tgui_log = "[GLOB.log_directory]/tgui.log"
 	GLOB.subsystem_log = "[GLOB.log_directory]/subsystem.log"
 	GLOB.reagent_log = "[GLOB.log_directory]/reagents.log"
@@ -160,7 +158,8 @@ GLOBAL_LIST(topic_status_cache)
 	start_log(GLOB.world_crafting_log)
 	start_log(GLOB.click_log)
 
-	GLOB.changelog_hash = md5('html/changelog.html') //for telling if the changelog has changed recently
+	var/latest_changelog = file("[global.config.directory]/../html/changelogs/archive/" + time2text(world.timeofday, "YYYY-MM") + ".yml")
+	GLOB.changelog_hash = fexists(latest_changelog) ? md5(latest_changelog) : 0 //for telling if the changelog has changed recently
 	if(fexists(GLOB.config_error_log))
 		fcopy(GLOB.config_error_log, "[GLOB.log_directory]/config_error.log")
 		fdel(GLOB.config_error_log)
@@ -212,7 +211,7 @@ GLOBAL_LIST(topic_status_cache)
 		if(PRcounts[id] > PR_ANNOUNCEMENTS_PER_ROUND)
 			return
 
-	var/final_composed = "<span class='announce'>PR: [announcement]</span>"
+	var/final_composed = span_announce("PR: [announcement]")
 	for(var/client/C in GLOB.clients)
 		C.AnnouncePR(final_composed)
 
@@ -242,9 +241,9 @@ GLOBAL_LIST(topic_status_cache)
 		if (usr)
 			log_admin("[key_name(usr)] Has requested an immediate world restart via client side debugging tools")
 			message_admins("[key_name_admin(usr)] Has requested an immediate world restart via client side debugging tools")
-		to_chat(world, "<span class='boldannounce'>Rebooting World immediately due to host request.</span>")
+		to_chat(world, span_boldannounce("Rebooting World immediately due to host request."))
 	else
-		to_chat(world, "<span class='boldannounce'>Rebooting world...</span>")
+		to_chat(world, span_boldannounce("Rebooting world..."))
 		Master.Shutdown()	//run SS shutdowns
 
 	TgsReboot()
@@ -252,7 +251,7 @@ GLOBAL_LIST(topic_status_cache)
 	#ifdef UNIT_TESTS
 	FinishTestRun()
 	return
-	#else
+	#endif
 
 	if(TgsAvailable())
 		var/do_hard_reboot
@@ -277,16 +276,15 @@ GLOBAL_LIST(topic_status_cache)
 
 	log_world("World rebooted at [TIME_STAMP("hh:mm:ss", FALSE)]")
 	shutdown_logging() // Past this point, no logging procs can be used, at risk of data loss.
+	//AUXTOOLS_SHUTDOWN(AUXMOS)
 	..()
-
-	#endif
 
 /world/Del()
 	shutdown_logging() // makes sure the thread is closed before end, else we terminate
 	//AUXTOOLS_SHUTDOWN(AUXMOS)
 	var/debug_server = world.GetConfig("env", "AUXTOOLS_DEBUG_DLL")
 	if (debug_server)
-		call(debug_server, "auxtools_shutdown")()
+		LIBCALL(debug_server, "auxtools_shutdown")()
 	..()
 
 /world/proc/update_status()
@@ -314,7 +312,7 @@ GLOBAL_LIST(topic_status_cache)
 
 	s += "<b>[station_name()]</b>";
 	s += " ("
-	s += "<a href=\"[CONFIG_GET(string/discordurl)]\">" //Change this to wherever you want the hub to link to.
+	s += "<a href=\"https://discord.gg/Xmg7Sb3kSD\">" //Change this to wherever you want the hub to link to.
 	s += "Discord"  //Replace this with something else. Or ever better, delete it and uncomment the game version.
 	s += "</a>"
 	s += ")\]" //CIT CHANGE - encloses the server title in brackets to make the hub entry fancier
@@ -325,8 +323,8 @@ GLOBAL_LIST(topic_status_cache)
 	if(SSmapping.config) // this just stops the runtime, honk.
 		features += "[SSmapping.config.map_name]"	//CIT CHANGE - makes the hub entry display the current map
 
-	if(NUM2SECLEVEL(GLOB.security_level))//CIT CHANGE - makes the hub entry show the security level
-		features += "[NUM2SECLEVEL(GLOB.security_level)] alert"
+	//if(NUM2SECLEVEL(GLOB.security_level)) // Coyote Bayou - We don't use alert levels.
+	//	features += "[NUM2SECLEVEL(GLOB.security_level)] alert"
 
 	var/popcaptext = ""
 	var/popcap = max(CONFIG_GET(number/extreme_popcap), CONFIG_GET(number/hard_popcap), CONFIG_GET(number/soft_popcap))
