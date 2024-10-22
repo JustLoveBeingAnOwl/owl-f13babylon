@@ -39,22 +39,22 @@
 	if(!ishuman(user) || !user.Adjacent(source) || user.incapacitated())
 		return FALSE
 	if(user.get_active_held_item())
-		to_chat(user, span_warning("Your hands are full!"))
+		to_chat(user, "<span class='warning'>Your hands are full!</span>")
 		return FALSE
 	if(source.buckled)
-		to_chat(user, span_warning("[source] is buckled to something!"))
+		to_chat(user, "<span class='warning'>[source] is buckled to something!</span>")
 		return FALSE
 	if(source == user)
-		to_chat(user, span_warning("You can't pick yourself up."))
+		to_chat(user, "<span class='warning'>You can't pick yourself up.</span>")
 		return FALSE
-	source.visible_message(span_warning("[user] starts picking up [source]."), \
-					span_userdanger("[user] starts picking you up!"))
+	source.visible_message("<span class='warning'>[user] starts picking up [source].</span>", \
+					"<span class='userdanger'>[user] starts picking you up!</span>")
 	if(!do_after(user, 20, target = source) || source.buckled)
 		return FALSE
 
-	source.visible_message(span_warning("[user] picks up [source]!"), \
-					span_userdanger("[user] picks you up!"))
-	to_chat(user, span_notice("You pick [source] up."))
+	source.visible_message("<span class='warning'>[user] picks up [source]!</span>", \
+					"<span class='userdanger'>[user] picks you up!</span>")
+	to_chat(user, "<span class='notice'>You pick [source] up.</span>")
 	source.drop_all_held_items()
 	var/obj/item/clothing/head/mob_holder/holder = new(get_turf(source), source, worn_state, alt_worn, right_hand, left_hand, inv_slots)
 	holder.escape_on_find = escape_on_find
@@ -100,26 +100,6 @@
 	if(right_hand)
 		righthand_file = right_hand
 	slot_flags = slots
-
-/obj/item/clothing/head/mob_holder/ComponentInitialize()
-	. = ..()
-	RegisterSignal(src, COMSIG_VORE_ATOM_DEVOURED, PROC_REF(release))
-	RegisterSignal(src, COMSIG_VORE_CAN_EAT, PROC_REF(relay_caneat))
-	RegisterSignal(src, COMSIG_VORE_CAN_BE_EATEN, PROC_REF(relay_can_be_eaten))
-	RegisterSignal(src, COMSIG_VORE_CAN_BE_FED_PREY, PROC_REF(relay_can_be_fed))
-	RegisterSignal(src, COMSIG_VORE_SNIFF_LIVING, PROC_REF(relay_sniff))
-
-/obj/item/clothing/head/mob_holder/proc/relay_caneat()
-	return SEND_SIGNAL(held_mob, COMSIG_VORE_CAN_EAT)
-
-/obj/item/clothing/head/mob_holder/proc/relay_can_be_eaten()
-	return SEND_SIGNAL(held_mob, COMSIG_VORE_CAN_BE_EATEN)
-
-/obj/item/clothing/head/mob_holder/proc/relay_can_be_fed()
-	return SEND_SIGNAL(held_mob, COMSIG_VORE_CAN_BE_FED_PREY)
-
-/obj/item/clothing/head/mob_holder/proc/relay_sniff(datum/source, mob/living/living_sniffer)
-	return SEND_SIGNAL(held_mob, COMSIG_VORE_SNIFF_LIVING, living_sniffer)
 
 /obj/item/clothing/head/mob_holder/proc/assimilate(mob/living/target)
 	target.setDir(SOUTH)
@@ -169,11 +149,11 @@
 	if(held_mob && !ismob(loc) && !istype(loc,/obj/item/storage))//don't release on soft-drops
 		release()
 
-/obj/item/clothing/head/mob_holder/proc/release(atom/movable/here)
+/obj/item/clothing/head/mob_holder/proc/release()
 	if(held_mob)
 		var/mob/living/L = held_mob
 		held_mob = null
-		L.forceMove(istype(here) ? here : get_turf(L))
+		L.forceMove(get_turf(L))
 		L.reset_perspective()
 		L.setDir(SOUTH)
 	if(!QDELETED(src))
@@ -185,7 +165,7 @@
 /obj/item/clothing/head/mob_holder/container_resist()
 	if(isliving(loc))
 		var/mob/living/L = loc
-		L.visible_message(span_warning("[held_mob] escapes from [L]!"), span_warning("[held_mob] escapes your grip!"))
+		L.visible_message("<span class='warning'>[held_mob] escapes from [L]!</span>", "<span class='warning'>[held_mob] escapes your grip!</span>")
 	release()
 
 /obj/item/clothing/head/mob_holder/mob_can_equip(mob/living/M, mob/living/equipper, slot, disable_warning = FALSE, bypass_equip_delay_self = FALSE)

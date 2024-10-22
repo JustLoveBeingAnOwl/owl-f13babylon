@@ -8,7 +8,7 @@
 	station_integrity = min(PERCENT(GLOB.start_state.score(end_state)), 100)
 	gather_antag_data()
 	record_nuke_disk_location()
-	var/json_file = wrap_file("[GLOB.log_directory]/round_end_data.json")
+	var/json_file = file("[GLOB.log_directory]/round_end_data.json")
 	var/list/file_data = list("escapees" = list("humans" = list(), "silicons" = list(), "others" = list(), "npcs" = list()), "abandoned" = list("humans" = list(), "silicons" = list(), "others" = list(), "npcs" = list()), "ghosts" = list(), "additional data" = list())
 	var/num_survivors = 0
 	var/num_escapees = 0
@@ -174,7 +174,7 @@
 
 	to_chat(world, "<BR><BR><BR><span class='big bold'>The round has ended.</span>")
 	if(LAZYLEN(GLOB.round_end_notifiees))
-		world.TgsTargetedChatBroadcast("[GLOB.round_end_notifiees.Join(", ")] the round has ended.", FALSE)
+		SSdiscord.send_to_round_channel("[GLOB.round_end_notifiees.Join(", ")] the round has ended.")
 
 	for(var/I in round_end_events)
 		var/datum/callback/cb = I
@@ -201,28 +201,28 @@
 
 	//Set news report and mode result
 	mode.set_round_result()
-
-	var/survival_rate = GLOB.joined_player_list.len ? "[PERCENT(popcount[POPCOUNT_SURVIVORS]/GLOB.joined_player_list.len)]%" : "there's literally no player"
-
-	send2irc("Server", "A round of [mode.name] just ended[mode_result == "undefined" ? "." : " with a [mode_result]."] Survival rate: [survival_rate]")
-
 	if(length(CONFIG_GET(keyed_list/cross_server)))
 		send_news_report()
-	//fortuna addition. list of random names for the roundend news author
-	var/list/publisher = list("Oasis Publishing","Brotherhood News","Mojave Publishing","FEV News")
-	//tell the nice people on discord what went on before the salt cannon happens.
-	// send2chat sending the new round ping off
-	send2chat(" <@&922230570791108628> ", CONFIG_GET(string/discord_channel_serverstatus))
-	world.TgsTargetedChatBroadcast("The current round has ended. Please standby for your [pick(publisher)] report!", FALSE)
-	//lonestar edit. i'm adding a timer here because i'm tired of the messages being sent out of order
+
+	var/static/publisher = pick(
+		"Babylon Publishing",
+		"Followers Administrator",
+		"Great Khan Storyteller",
+		"Legion Orator",
+		"NCR Intelligence",
+		"Tribal Rumors",
+		"Brotherhood Survey Team",
+		"Enclave Propaganda",
+	)
+	SSdiscord.send_to_round_channel("The current round has ended. Please standby for your [publisher] report.")
 	addtimer(CALLBACK(src, PROC_REF(send_roundinfo)), 3 SECONDS)
 
 	CHECK_TICK
 
-	set_observer_default_invisibility(0, span_warning("The round is over! You are now visible to the living."))
+	set_observer_default_invisibility(0, "<span class='warning'>The round is over! You are now visible to the living.</span>")
 
 	CHECK_TICK
-	
+
 	//These need update to actually reflect the real antagonists
 	//Print a list of antagonists to the server log
 	var/list/total_antagonists = list()
@@ -255,7 +255,6 @@
 	var/time_to_end = CONFIG_GET(number/eorg_period)
 	to_chat(world, "<span class='info'>EORD in progress, game end delayed by [time_to_end * 0.1] seconds!</a></span>")
 	addtimer(CALLBACK(src, PROC_REF(standard_reboot)), time_to_end)
-
 
 /datum/controller/subsystem/ticker/proc/standard_reboot()
 	ready_for_reboot = TRUE
@@ -316,7 +315,7 @@
 			parts += "[FOURSPACES][FOURSPACES][choice]: [score]"
 
 	parts += "[FOURSPACES]Round Duration: <B>[DisplayTimeText(world.time - SSticker.round_start_time)]</B>"
-	//parts += "[FOURSPACES]Station Integrity: <B>[mode.station_was_nuked ? span_redtext("Destroyed") : "[popcount["station_integrity"]]%"]</B>"
+	//parts += "[FOURSPACES]Station Integrity: <B>[mode.station_was_nuked ? "<span class='redtext'>Destroyed</span>" : "[popcount["station_integrity"]]%"]</B>"
 	var/total_players = GLOB.joined_player_list.len
 	if(total_players)
 		parts+= "[FOURSPACES]Total Population: <B>[total_players]</B>"
@@ -365,7 +364,7 @@
 		fdel(filename)
 		text2file(content, filename)
 	else
-		content = wrap_file2text(filename)
+		content = file2text(filename)
 	roundend_report.set_content(content)
 	roundend_report.stylesheets = list()
 	roundend_report.add_stylesheet("roundend", 'html/browser/roundend.css')
@@ -383,14 +382,14 @@
 					parts += "<span class='marooned'>You managed to survive the events in [station_name()]...</span>"
 				else
 					parts += "<div class='panel greenborder'>"
-					parts += span_greentext("You managed to survive the events in [station_name()] as [M.real_name].")
+					parts += "<span class='greentext'>You managed to survive the events in [station_name()] as [M.real_name].</span>"
 			else
 				parts += "<div class='panel greenborder'>"
-				parts += span_greentext("You managed to survive the events in [station_name()] as [M.real_name].")
+				parts += "<span class='greentext'>You managed to survive the events in [station_name()] as [M.real_name].</span>"
 
 		else
 			parts += "<div class='panel redborder'>"
-			parts += span_redtext("You did not survive the events in [station_name()]...")
+			parts += "<span class='redtext'>You did not survive the events in [station_name()]...</span>"
 	else
 		parts += "<div class='panel stationborder'>"
 	parts += "<br>"
@@ -444,30 +443,21 @@
 		return "<div class='panel stationborder'>[parts.Join("<br>")]</div>"
 	else
 		return ""
-/*
-/datum/controller/subsystem/ticker/proc/goal_report()
-	var/list/parts = list()
-	if(mode.station_goals.len)
-		for(var/V in mode.station_goals)
-			var/datum/station_goal/G = V
-			parts += G.get_result()
-		return "<div class='panel stationborder'><ul>[parts.Join()]</ul></div>"
-*/
+
 /datum/controller/subsystem/ticker/proc/medal_report()
 	if(GLOB.commendations.len)
 		var/list/parts = list()
-		parts += span_header("Medal Commendations:")
+		parts += "<span class='header'>Medal Commendations:</span>"
 		for (var/com in GLOB.commendations)
 			parts += com
 		return "<div class='panel stationborder'>[parts.Join("<br>")]</div>"
 	return ""
 
-
 /datum/controller/subsystem/ticker/proc/matchmaking_report()
 	var/list/matches_log = SSmatchmaking.matches_log
 	if(!length(matches_log))
 		return ""
-	var/list/parts = list(span_header("Matchmakings:"))
+	var/list/parts = list("<span class='header'>Matchmakings:</span>")
 	parts += matches_log
 	return "<div class='panel stationborder'>[parts.Join("<br>")]</div>"
 
@@ -493,7 +483,7 @@
 	var/currrent_category
 	var/datum/antagonist/previous_category
 
-	sortTim(all_antagonists, GLOBAL_PROC_REF(cmp_antag_category))
+	sortTim(all_antagonists, /proc/cmp_antag_category)
 
 	for(var/datum/antagonist/A in all_antagonists)
 		if(!A.show_in_roundend)
@@ -519,7 +509,6 @@
 
 /proc/cmp_antag_category(datum/antagonist/A,datum/antagonist/B)
 	return sorttext(B.roundend_category,A.roundend_category)
-
 
 /datum/controller/subsystem/ticker/proc/give_show_report_button(client/C)
 	var/datum/action/report/R = new
@@ -665,5 +654,8 @@
 		qdel(query_check_everything_ranks)
 
 /datum/controller/subsystem/ticker/proc/send_roundinfo()
-	world.TgsTargetedChatBroadcast(send_news_report(),FALSE)
-
+	var/news_report = send_news_report()
+	var/ping_role_id = CONFIG_GET(string/discord_round_ping_role)
+	if(ping_role_id)
+		news_report += "\n<@&[ping_role_id]>"
+	SSdiscord.send_to_round_channel(news_report)
